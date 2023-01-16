@@ -1,0 +1,58 @@
+if (bit_num < 17 && bit_num > 0){
+		regB_buff[frame_num] = (uint16_t)GPIOB->IDR;
+		//data_buff_X[frame_num] |= X_Read << bit_num;
+		//data_buff_Y[frame_num] |= Y_Read << bit_num;
+		//data_buff_Z[frame_num] |= Z_Read << bit_num;
+	}
+	else if (bit_num == 0){
+		if(!(calc_PE(data_buff_X[frame_num], X_Read) &&
+				calc_PE(data_buff_Y[frame_num], Y_Read) &&
+				calc_PE(data_buff_Z[frame_num], Z_Read))){
+			fault_frames[fault_frames_idx] = frame_num;
+			fault_frames_idx++;
+		}
+	}
+	bit_num--;
+	if (bit_num < 0){
+		frame_num++;
+		bit_num = 20;
+	}
+	if (frame_num >= 10){
+		frame_num = 0;
+	}
+	
+	///********
+	if (bit_num == 0){
+		if(!(calc_PE(data_buff_X[frame_num], X_Read) &&
+				calc_PE(data_buff_Y[frame_num], Y_Read) &&
+				calc_PE(data_buff_Z[frame_num], Z_Read))){
+			fault_frames[fault_frames_idx] = frame_num;
+			fault_frames_idx++;
+		}
+	}
+	if (frame_num >= 10){
+		frame_num = 0;
+	}
+	
+	
+	/************
+	oid EXTI0_IRQHandler(void){
+	EXTI->IMR &= ~EXTI_RTSR_TR0; //Disable interrupts from EXTI0
+	EXTI->PR |= EXTI_PR_PR0;
+	is_sync = 0x1;
+}
+
+void EXTI1_IRQHandler(void){
+	EXTI->PR |= EXTI_PR_PR1;
+	if (is_sync > 0){
+		regB_buff[bit_num-1] = (uint32_t)GPIOB->IDR;
+		bit_num--;
+		if (bit_num < 0) {
+			frame_num++;
+			bit_num = 100;
+		}
+		if (frame_num == 5){
+			bit_num = 100;
+		}
+	}
+}

@@ -1,0 +1,138 @@
+void GPIO_Init(void){
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN; //Enable GPIOB
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; //Enable GPIOA
+	//RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;// Enable alternative functions
+
+	/*	PB0	*/
+	GPIOB->MODER &= ~GPIO_MODER_MODE0; // Input mode
+	GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR0_1; //High speed
+	//GPIOB->PUPDR |= GPIO_PUPDR_PUPD0_1; //Pull-down
+	GPIOB->PUPDR &= ~GPIO_PUPDR_PUPDR0;
+
+	/*	PB1	*/
+	GPIOB->MODER &= ~GPIO_MODER_MODE1; // Input mode
+	GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR1_1; //High speed
+	//GPIOB->PUPDR |= GPIO_PUPDR_PUPD1_1; //Pull-down
+	GPIOB->PUPDR &= ~GPIO_PUPDR_PUPDR1;
+
+	/*	PB11 - X	*/
+	GPIOB->MODER &= ~GPIO_MODER_MODE11; // Input mode
+	GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR11_1; //High speed
+
+	/*	PB12 - Y	*/
+	GPIOB->MODER &= ~GPIO_MODER_MODE12; // Input mode
+	GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR12_1; //High speed
+
+	/*	PB15 - Z	*/
+	GPIOB->MODER &= ~GPIO_MODER_MODE15; // Input mode
+	GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR15_1; //High speed
+
+
+	// PA1 - TIM2 input channel 3
+	GPIOA->MODER &= ~GPIO_MODER_MODE1;
+	GPIOA->MODER |= GPIO_MODER_MODE1_1; // Alternate function mode
+	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR1_1; //High speed
+	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD1_1; //Pull-down
+	GPIOA->AFR[0] |= GPIO_AFRL_AFRL1_0; //Alternate function for PA1 - AF1 (TIM1/TIM2)
+
+	// PA3 - TIM2 input channel 4
+	GPIOA->MODER &= ~GPIO_MODER_MODE3;
+	GPIOA->MODER |= GPIO_MODER_MODE3_1; // Alternate function mode
+	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR3_1; //High speed
+	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD3_1; //Pull-down
+	GPIOA->AFR[0] |= GPIO_AFRL_AFRL3_0; //Alternate function for PA3 - AF1 (TIM1/TIM2)
+
+}
+
+void TIM_Init(void){
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; //Enable GPIOA
+	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Enable TIM2
+	//RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;// Enable alternative functions
+
+	//Config friq
+	TIM2->PSC = (uint32_t) 1; //freq 1kHz
+	TIM2->ARR = (uint32_t) 0xffff;
+
+	//CR1
+	TIM2->CR1 &= ~TIM_CR1_DIR; //Counter used as upcounter
+	TIM2->CR1 &= ~TIM_CR1_ARPE; //Auto-reload preload enable
+	TIM2->CR1 &= ~TIM_CR1_CKD; //Clock division 1
+	TIM2->CR1 &= ~TIM_CR1_DIR; //Counter used as upcounter
+
+	//DIER
+	TIM2->DIER |= TIM_DIER_CC2IE; //Capture/Compare 3/4 enable
+	TIM2->DIER |= TIM_DIER_CC4IE;
+
+	//CCMR2
+	TIM2->CCMR1 &= ~TIM_CCMR1_IC2F;
+	TIM2->CCMR2 &= ~TIM_CCMR2_IC4PSC; //don't filter
+	TIM2->CCMR1 &= ~TIM_CCMR1_IC2PSC;
+	TIM2->CCMR2 &= ~TIM_CCMR2_IC4F; //don't use prescaler
+
+	TIM2->CCMR1 &= ~TIM_CCMR1_CC2S;
+	TIM2->CCMR2 &= ~TIM_CCMR2_CC4S;
+	TIM2->CCMR1 |= TIM_CCMR1_CC2S_0;//: CC2 channel is configured as input, IC2 is mapped on TI2
+	TIM2->CCMR2 |= TIM_CCMR2_CC4S_0;//: CC4 channel is configured as input, IC4 is mapped on TI4
+
+	//CCER
+	TIM2->CCER &= ~TIM_CCER_CC2P; //Rising mode
+	TIM2->CCER |= TIM_CCER_CC4P; //Falling mode
+	TIM2->CCER |= TIM_CCER_CC2E | TIM_CCER_CC4E; //Capture enable
+
+	TIM2->CR1 |= TIM_CR1_CEN; //Counter enable
+
+	NVIC_EnableIRQ(TIM2_IRQn); // TIM2 global interrupt enable
+}
+
+void EXTI_Init(void){
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;// Enable alternative functions
+	// PB0 configure - SYNC
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PB; //EXTI0 on port B
+	EXTI->IMR |= EXTI_IMR_MR0;  //Enable interrupts from EXTI0
+	EXTI->RTSR |= EXTI_RTSR_TR0;
+
+	NVIC_EnableIRQ(EXTI0_IRQn);
+
+	/* PB1 configure - CLK */
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI1_PB; //EXTI1 on port B
+	//EXTI->IMR |= EXTI_IMR_MR1;  //Enable interrupts from EXTI1
+	//EXTI->RTSR |= EXTI_RTSR_TR1;
+	EXTI->FTSR |= EXTI_FTSR_TR1;
+
+	NVIC_EnableIRQ(EXTI1_IRQn);
+}
+
+uint8_t calc_PE(uint16_t data, uint8_t PE){
+	uint8_t sum = 0;
+
+	for (uint8_t i = 0; i < 16; i++){
+		if (data & 0x1 == 1){
+			sum++;
+		}
+		data = data >> 0x1;
+	}
+
+	return PE == sum & 0x1; // if PE and junior bit of sum are equal
+}
+
+void EXTI0_IRQHandler(void){
+	EXTI->IMR &= ~EXTI_IMR_MR0; //Disable interrupts from EXTI0
+	EXTI->PR |= EXTI_PR_PR0;
+	EXTI->IMR |= EXTI_IMR_MR1;  //Enable interrupts from EXTI1
+	//is_sync = 0x1;
+}
+
+void EXTI1_IRQHandler(void){
+	EXTI->PR |= EXTI_PR_PR1;
+	//if (is_sync > 0){
+		regB_buff[bit_num-1] = (uint32_t)GPIOB->IDR;
+		bit_num--;
+		if (bit_num < 0) {
+			frame_num++;
+			bit_num = 100;
+		}
+		if (frame_num == 5){
+			bit_num = 100;
+		}
+	//}
+}
