@@ -19,7 +19,7 @@
 
 #define GPIOx_BUF_SIZE				20000
 #define DATA_BUF_SIZE				1000
-#define DATA_XY2_LEN				19
+#define DATA_XY2_LEN				20
 #define DATA_XY2_USB_LEN			8
 
 #define SYNC_OFFSET					2
@@ -28,19 +28,22 @@
 #define DATA_Z_OFFSET				6
 /* ~Defines~ */
 
-struct Data_XY2_100{
-	uint16_t x;
-	uint16_t y;
-	uint16_t z;
-};
+#define CENTRAL_COORFINATE_X		32767
+#define CENTRAL_COORDINATE_Y		32768
+
+//struct Data_XY2_100{
+//	uint16_t x;
+//	uint16_t y;
+//	uint16_t z;
+//};
 
 extern frame_num, bit_num;
-extern fault_frames[256];
-extern uint16_t fault_frames_idx;
+extern uint32_t fault_frames[256];
+extern uint32_t fault_frames_idx;
 extern uint8_t is_sync;
 extern uint16_t offset_idx;
 
-extern struct Data_XY2_100 data_buff[DATA_BUF_SIZE];
+//extern struct Data_XY2_100 data_buff[DATA_BUF_SIZE];
 extern uint16_t sync_buff[GPIOx_BUF_SIZE];
 extern uint16_t GPIOx_buff[GPIOx_BUF_SIZE];
 
@@ -59,8 +62,10 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream);
 void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t dstAdrr, uint16_t dataSize);
 
 void find_offset(uint16_t* buf_GPIO);
-void data_Processing(uint16_t* buf_GPIO, struct Data_XY2_100* buf_data, uint16_t* buf_sync, uint16_t buf_size);
+void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size);
+//void data_processing(uint16_t* buf_GPIO, struct Data_XY2_100* buf_data, uint16_t* buf_sync, uint16_t buf_size);
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len);
+
 /* ~Functions~ */
 
 #endif

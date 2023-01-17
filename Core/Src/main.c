@@ -40,9 +40,10 @@
 #define DEMCR           (*((volatile unsigned long *)(0xE000EDFC)))
 #define TRCENA          0x01000000
 
-#define DC_BUFF_SIZE	100
+#define DC_BUFF_SIZE	100	/* duty cycle buffer size */
 #define SEND_ARR_SIZE	3
 #define SEND_BYTE_SIZE 	SEND_ARR_SIZE * 2
+
 
 /* USER CODE END PD */
 
@@ -50,7 +51,7 @@
 /* USER CODE BEGIN PM */
 
 uint16_t sync_buff[GPIOx_BUF_SIZE] = {0};
-struct Data_XY2_100 data_buff[DATA_BUF_SIZE] = {0};
+//struct Data_XY2_100 data_buff[DATA_BUF_SIZE] = {0};
 
 /*******TEST**********/
 uint16_t data_buf_x[DATA_BUF_SIZE] = {0};
@@ -58,7 +59,7 @@ uint16_t data_buf_y[DATA_BUF_SIZE] = {0};
 uint16_t data_buf_z[DATA_BUF_SIZE] = {0};
 /*extra arrays for transmission data by 1 byte*/
 uint16_t data_buf_tran[SEND_ARR_SIZE] = {0};
-static int idx_byte = 0;
+static int idx_frame = 0;
 /******~TEST~*********/
 
 uint16_t buff_impuls[2] = {0};
@@ -80,8 +81,8 @@ float duty_cycle_buff[DC_BUFF_SIZE] = {0};
 uint16_t duty_cycle_idx = 0;
 /*	~Timer	*/
 
-int fault_frames[256] = {0};
-uint16_t fault_frames_idx = 0x0;
+uint32_t fault_frames[256] = {0};
+uint32_t fault_frames_idx = 0x0;
 
 /* USER CODE END PM */
 
@@ -170,8 +171,8 @@ int main(void)
 	//CDC_Transmit_FS(testDataToSend, DATA_XY2_USB_LEN);
 
 	if (COF) {
-		if (idx_byte > DATA_BUF_SIZE){
-			idx_byte = 0;
+		if (idx_frame >= DATA_BUF_SIZE){
+			idx_frame = 0;
 		}
 		/*
 		data_buf_tran[0] = 'X';
@@ -181,12 +182,15 @@ int main(void)
 		data_buf_tran[3] = data_buf_y[idx_byte];
 		data_buf_tran[5] = data_buf_z[idx_byte];
 		*/
-		data_buf_tran[0] = data_buf_x[idx_byte];
-		data_buf_tran[1] = data_buf_y[idx_byte];
-		data_buf_tran[2] = data_buf_z[idx_byte];
-		CDC_Transmit_FS(data_buf_tran, SEND_BYTE_SIZE);
+		if (data_buf_x[idx_frame] != CENTRAL_COORFINATE_X && data_buf_y[idx_frame] != CENTRAL_COORDINATE_Y) {
+			//find_offset(GPIOx_buff);
+			data_buf_tran[0] = data_buf_x[idx_frame];
+			data_buf_tran[1] = data_buf_y[idx_frame];
+			data_buf_tran[2] = data_buf_z[idx_frame];
+			CDC_Transmit_FS(data_buf_tran, SEND_BYTE_SIZE);
+		}
 		//CDC_Transmit_FS(testDataToSending, SEND_BYTE_SIZE);
-		idx_byte++;
+		idx_frame++;
 	}
   }
   /* USER CODE END 3 */
@@ -327,7 +331,7 @@ void DMA2_Stream1_IRQHandler(void){
 
 	if (DMA2->LISR & DMA_LISR_TCIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
-		data_Processing(GPIOx_buff, data_buff, sync_buff, GPIOx_BUF_SIZE);
+		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
 	}
 }
 

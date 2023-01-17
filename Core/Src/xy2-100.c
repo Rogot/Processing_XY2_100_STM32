@@ -135,31 +135,6 @@ void CMSIS_TIM8_Init(void){
 	TIM8->DIER |= TIM_DIER_UDE; // Update DMA request enable
 }
 
-//	Using Input Capture/Compare mode
-/*
-void CMSIS_TIM8_Init(void){
-	RCC->APB2ENR |= RCC_APB2ENR_TIM8EN; // Enable TIM8
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; //Enable GPIOA
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN; //Enable GPIOC
-
-	TIM8->PSC = 0;
-	TIM8->ARR = 1;
-
-	TIM8->CR1 &= (~TIM_CR1_ARPE); //Auto-reload preload enable
-
-	TIM8->CCMR1 |= TIM_CCMR1_CC1S_0; //CC1 channel is conf as input
-	TIM8->CCMR1 &= (~(TIM_CCMR1_IC1F | TIM_CCMR1_IC1PSC));
-
-	TIM8->CCER |= TIM_CCER_CC1P; //Falling edge
-	//TIM8->CCER |= TIM_CCER_CC1NP; //Both edge
-	TIM8->CCER |= TIM_CCER_CC1E;
-	TIM8->DIER |= TIM_DIER_CC1DE; //Allow interruption by DMA
-
-	for (uint16_t i = 0; i < 0xffff; i++); //delay for avoiding fatal error
-
-	NVIC_EnableIRQ(TIM8_CC_IRQn); // TIM8 global interrupt enable
-}*/
-
 //-----------------------------------------------------------------------------
 // 	void CMSIS_TIM2_Init(void)
 //-----------------------------------------------------------------------------
@@ -231,50 +206,36 @@ void find_offset(uint16_t* buf_GPIO){
 	}
 }
 
-void data_Processing(uint16_t* buf_GPIO, struct Data_XY2_100* buf_data, uint16_t* buf_sync, uint16_t buf_size){
+void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size){
 	// We take into account the data offset, so the value of the initial bit is "1"
 	uint8_t current_bit = 0x0;
 	uint16_t current_frame = 0x0;
 
-	for (uint16_t i = offset_idx - 1; i < buf_size - offset_idx - 1; ++i){
-		current_bit++;
+	for (uint16_t i = DATA_XY2_LEN - offset_idx + 1; i < buf_size - offset_idx + 1; ++i){
 		if (current_bit > 2 && current_bit < 19) {
 			/*
 			 * recording each bit taking into account its location
 			 */
-#if 0
-			buf_data[current_frame].x |= ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1) << (18 - current_bit);
-			buf_data[current_frame].y |= ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1) << (18 - current_bit);
-			buf_data[current_frame].z |= ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1) << (18 - current_bit);
-#endif
-#if 1
 			data_buf_x[current_frame] |= ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1) << (18 - current_bit);
 			data_buf_y[current_frame] |= ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1) << (18 - current_bit);
 			data_buf_z[current_frame] |= ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1) << (18 - current_bit);
-#endif
 		} else if (current_bit == 19){
-			current_bit = 0xff;
+			current_bit = 0xff; /* to reset the value "current_bit" on next step*/
 			/*
 			 * check parity even
 			 */
-#if 1
 			if (!(calc_PE(data_buf_x[current_frame], ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1), DATA_XY2_LEN)
 					&& calc_PE(data_buf_y[current_frame], ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1), DATA_XY2_LEN)
 					&& calc_PE(data_buf_z[current_frame], ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN))) {
 				fault_frames[fault_frames_idx] = current_frame;
+				if (fault_frames_idx > 256){
+					fault_frames_idx = 0;
+				}
 				fault_frames_idx++;
 			}
-#endif
-#if 0
-			if (!(calc_PE(buf_data[current_frame].x, ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1), DATA_XY2_LEN)
-					&& calc_PE(buf_data[current_frame].y, ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1), DATA_XY2_LEN)
-					&& calc_PE(buf_data[current_frame].z, ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN))) {
-				fault_frames[fault_frames_idx] = current_frame;
-				fault_frames_idx++;
-			}
-#endif
 			current_frame++;
 		}
+		current_bit++;
 	}
 }
 
