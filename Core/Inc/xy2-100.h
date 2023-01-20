@@ -18,7 +18,9 @@
 #define TIM2_CCR2_Address			((uint32_t)TIM2_Address + 0x38)
 
 #define GPIOx_BUF_SIZE				20000
+#define GPIOx_BUF_HALF_SIZE			GPIOx_BUF_SIZE / 2
 #define DATA_BUF_SIZE				1000
+#define DATA_BUF_HALF_SIZE			DATA_BUF_SIZE / 2
 #define DATA_XY2_LEN				20
 #define DATA_XY2_USB_LEN			8
 
@@ -62,7 +64,7 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream);
 void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t dstAdrr, uint16_t dataSize);
 
 void find_offset(uint16_t* buf_GPIO);
-void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size);
+void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
 //void data_processing(uint16_t* buf_GPIO, struct Data_XY2_100* buf_data, uint16_t* buf_sync, uint16_t buf_size);
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len);
 

@@ -171,19 +171,11 @@ int main(void)
 	//CDC_Transmit_FS(testDataToSend, DATA_XY2_USB_LEN);
 
 	if (COF) {
-		if (idx_frame >= DATA_BUF_SIZE){
+		if (idx_frame >= DATA_BUF_SIZE - offset_idx - 1){
 			idx_frame = 0;
 		}
-		/*
-		data_buf_tran[0] = 'X';
-		data_buf_tran[2] = 'Y';
-		data_buf_tran[4] = 'Z';
-		data_buf_tran[1] = data_buf_x[idx_byte];
-		data_buf_tran[3] = data_buf_y[idx_byte];
-		data_buf_tran[5] = data_buf_z[idx_byte];
-		*/
-		if (data_buf_x[idx_frame] != CENTRAL_COORFINATE_X && data_buf_y[idx_frame] != CENTRAL_COORDINATE_Y) {
-			//find_offset(GPIOx_buff);
+		if (data_buf_x[idx_frame] != CENTRAL_COORFINATE_X
+				&& data_buf_y[idx_frame] != CENTRAL_COORDINATE_Y) {
 			data_buf_tran[0] = data_buf_x[idx_frame];
 			data_buf_tran[1] = data_buf_y[idx_frame];
 			data_buf_tran[2] = data_buf_z[idx_frame];
@@ -318,6 +310,8 @@ void DMA2_Stream2_IRQHandler(void){
 	}
 }
 
+uint8_t a = 0;
+
 void DMA2_Stream1_IRQHandler(void){
 
 	if (!COF){
@@ -327,11 +321,13 @@ void DMA2_Stream1_IRQHandler(void){
 
 	if (DMA2->LISR & DMA_LISR_HTIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE, 0x0, 0x0);
 	}
 
 	if (DMA2->LISR & DMA_LISR_TCIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
-		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
+		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE - offset_idx,
+				GPIOx_BUF_HALF_SIZE, DATA_BUF_HALF_SIZE - 1);
 	}
 }
 
