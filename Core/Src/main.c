@@ -50,7 +50,18 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
+/*TEMP*/
+uint16_t test_arr_x[DATA_BUF_SIZE] = {0};
+uint16_t test_arr_y[DATA_BUF_SIZE] = {0};
+uint8_t save = 0x1;
+/*TEMP*/
+
 uint16_t sync_buff[GPIOx_BUF_SIZE] = {0};
+
+uint16_t sample_counter = 0x0;
+uint8_t flag = 0x0, sample_finished = 0x0;
+
+
 //struct Data_XY2_100 data_buff[DATA_BUF_SIZE] = {0};
 
 /*******TEST**********/
@@ -144,20 +155,6 @@ int main(void)
   CMSIS_DMA_Config(DMA2_Stream1, &GPIOA->IDR, (uint32_t)GPIOx_buff, GPIOx_BUF_SIZE);
   CMSIS_TIM8_Init();
 
-  //HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_2);
-  //HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
-
-  uint8_t testDataToSend[8];
-  for (uint8_t i = 0; i < 8; i++){
-	  testDataToSend[i] = i;
-  }
-  testDataToSend[7] = '\n';
-
-  uint16_t testDataToSending[SEND_ARR_SIZE];
-  for (uint8_t i = 0; i < SEND_ARR_SIZE; i++){
-	  testDataToSending[i] = i + 1;
-  }
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -171,26 +168,26 @@ int main(void)
 	//CDC_Transmit_FS(testDataToSend, DATA_XY2_USB_LEN);
 
 	if (COF) {
-		if (idx_frame >= DATA_BUF_SIZE){
+
+		if (idx_frame >= DATA_BUF_SIZE - offset_idx - 1){
 			idx_frame = 0;
 		}
-		/*
-		data_buf_tran[0] = 'X';
-		data_buf_tran[2] = 'Y';
-		data_buf_tran[4] = 'Z';
-		data_buf_tran[1] = data_buf_x[idx_byte];
-		data_buf_tran[3] = data_buf_y[idx_byte];
-		data_buf_tran[5] = data_buf_z[idx_byte];
-		*/
-		if (data_buf_x[idx_frame] != CENTRAL_COORFINATE_X && data_buf_y[idx_frame] != CENTRAL_COORDINATE_Y) {
-			//find_offset(GPIOx_buff);
+		if (sample_finished) {
+
+//			if (save) {
+//				test_arr_x[idx_frame] = data_buf_x[idx_frame];
+//				test_arr_y[idx_frame] = data_buf_y[idx_frame];
+//			} else {
+//				CDC_Transmit_FS(test_arr_x, DATA_BUF_SIZE * 2);
+//				CDC_Transmit_FS(test_arr_y, DATA_BUF_SIZE * 2);
+//			}
+
 			data_buf_tran[0] = data_buf_x[idx_frame];
 			data_buf_tran[1] = data_buf_y[idx_frame];
 			data_buf_tran[2] = data_buf_z[idx_frame];
 			CDC_Transmit_FS(data_buf_tran, SEND_BYTE_SIZE);
+			idx_frame++;
 		}
-		//CDC_Transmit_FS(testDataToSending, SEND_BYTE_SIZE);
-		idx_frame++;
 	}
   }
   /* USER CODE END 3 */
@@ -318,21 +315,29 @@ void DMA2_Stream2_IRQHandler(void){
 	}
 }
 
-void DMA2_Stream1_IRQHandler(void){
+uint8_t a = 0;
 
+void DMA2_Stream1_IRQHandler(void){
+//	GPIOA->BSRR |= GPIO_BSRR_BR4;
 	if (!COF){
 		find_offset(GPIOx_buff);
 		COF = 0x1;
 	}
 
-	if (DMA2->LISR & DMA_LISR_HTIF1){
+	if ((DMA2->LISR & DMA_LISR_HTIF1) && !(DMA2->LISR & DMA_LISR_TCIF1)){
+			DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+			//data_processing_test(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
+			data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE, 0x0, 0x0);
+	} else if (DMA2->LISR & DMA_LISR_HTIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
 	}
 
 	if (DMA2->LISR & DMA_LISR_TCIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
-		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
+		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE - offset_idx,
+				GPIOx_BUF_HALF_SIZE, DATA_BUF_HALF_SIZE - 1);
 	}
+//	GPIOA->BSRR |= GPIO_BSRR_BS4;
 }
 
 void TIM8_IRQHandler(void) {
