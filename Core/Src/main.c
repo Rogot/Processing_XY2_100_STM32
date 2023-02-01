@@ -50,14 +50,6 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
-/*TEMP*/
-uint16_t test_arr_x[DATA_BUF_SIZE] = {0};
-uint16_t test_arr_y[DATA_BUF_SIZE] = {0};
-uint8_t save = 0x1;
-/*TEMP*/
-
-uint16_t sync_buff[GPIOx_BUF_SIZE] = {0};
-
 uint16_t sample_counter = 0x0;
 uint8_t flag = 0x0, sample_finished = 0x0;
 
@@ -76,7 +68,8 @@ static int idx_frame = 0;
 uint16_t buff_impuls[2] = {0};
 uint16_t GPIOx_buff[GPIOx_BUF_SIZE] = {0};
 
-uint16_t offset_idx = 0;
+uint16_t GPIOx_offset_idx = 0;
+uint16_t data_offset_idx = 0;
 uint8_t COF = 0x0; //Check offset flag
 
 //uint16_t dma_buff[DMA_BUFF_SIZE];
@@ -164,23 +157,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	//HAL_Delay(2000);
-	//CDC_Transmit_FS(testDataToSend, DATA_XY2_USB_LEN);
 
 	if (COF) {
 
-		if (idx_frame >= DATA_BUF_SIZE - offset_idx - 1){
+		if (idx_frame >= DATA_BUF_SIZE - data_offset_idx - 1){
 			idx_frame = 0;
 		}
 		if (sample_finished) {
-
-//			if (save) {
-//				test_arr_x[idx_frame] = data_buf_x[idx_frame];
-//				test_arr_y[idx_frame] = data_buf_y[idx_frame];
-//			} else {
-//				CDC_Transmit_FS(test_arr_x, DATA_BUF_SIZE * 2);
-//				CDC_Transmit_FS(test_arr_y, DATA_BUF_SIZE * 2);
-//			}
 
 			data_buf_tran[0] = data_buf_x[idx_frame];
 			data_buf_tran[1] = data_buf_y[idx_frame];
@@ -318,7 +301,7 @@ void DMA2_Stream2_IRQHandler(void){
 uint8_t a = 0;
 
 void DMA2_Stream1_IRQHandler(void){
-//	GPIOA->BSRR |= GPIO_BSRR_BR4;
+	GPIOA->BSRR |= GPIO_BSRR_BS4;
 	if (!COF){
 		find_offset(GPIOx_buff);
 		COF = 0x1;
@@ -327,17 +310,17 @@ void DMA2_Stream1_IRQHandler(void){
 	if ((DMA2->LISR & DMA_LISR_HTIF1) && !(DMA2->LISR & DMA_LISR_TCIF1)){
 			DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
 			//data_processing_test(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
-			data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE, 0x0, 0x0);
+			data_processing(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
 	} else if (DMA2->LISR & DMA_LISR_HTIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
 	}
 
 	if (DMA2->LISR & DMA_LISR_TCIF1){
 		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
-		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE - offset_idx,
-				GPIOx_BUF_HALF_SIZE, DATA_BUF_HALF_SIZE - 1);
+		data_processing(GPIOx_buff, GPIOx_BUF_SIZE,
+				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx, DATA_BUF_HALF_SIZE - data_offset_idx - 1);
 	}
-//	GPIOA->BSRR |= GPIO_BSRR_BS4;
+	GPIOA->BSRR |= GPIO_BSRR_BR4;
 }
 
 void TIM8_IRQHandler(void) {

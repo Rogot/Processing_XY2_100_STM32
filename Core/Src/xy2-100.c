@@ -76,7 +76,7 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream){
 	dma_stream->CR |= DMA_SxCR_PSIZE_0; // 16 bit
 	dma_stream->CR |= DMA_SxCR_MINC; //Memory increment mode enable
 	dma_stream->CR &= ~DMA_SxCR_PINC; //Peripheral increment mode disable
-	//dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
+	dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
 	dma_stream->CR |= DMA_SxCR_HTIE; //Interrupt half enable
 }
 
@@ -205,34 +205,37 @@ void CMSIS_EXTI_Init(void){
 }
 
 void find_offset(uint16_t* buf_GPIO){
-	offset_idx = 0;
-	while ((buf_GPIO[offset_idx] & 0x4) != 0) {
-		offset_idx++;
+	GPIOx_offset_idx = 0;
+	while ((buf_GPIO[GPIOx_offset_idx] & 0x4) != 0) {
+		GPIOx_offset_idx++;
 	}
-	if (DATA_XY2_LEN - offset_idx != 0) {
-		offset_idx = DATA_XY2_LEN - offset_idx;
+	if (DATA_XY2_LEN - GPIOx_offset_idx != 0) {
+		GPIOx_offset_idx = DATA_XY2_LEN - GPIOx_offset_idx - 1;
+		data_offset_idx = 1;
 	}
 	else {
-		offset_idx = 0;
+		GPIOx_offset_idx = 0;
+		data_offset_idx = 0;
 	}
 }
 
-void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
+void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
 	// We take into account the data offset, so the value of the initial bit is "1"
+	GPIOA->BSRR |= GPIO_BSRR_BS4;
 	uint8_t current_bit = 0x0;
 	uint16_t current_frame = start_addr_data_buf;
 
 	uint16_t x = 0, y = 0, z = 0;
 
-	for (uint16_t i = start_addr_gpio_buf + DATA_XY2_LEN - offset_idx + 1; i < start_addr_gpio_buf + buf_size - offset_idx + 1; ++i){
+	for (uint16_t i = start_addr_gpio_buf; i < GPIO_buf_size - GPIOx_offset_idx; ++i){
 		if (current_bit > 2 && current_bit < 19) {
 			/*
 			 * recording each bit taking into account its location
 			 */
 
-			x |= ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1) << (18 - current_bit);
-			y |= ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1) << (18 - current_bit);
-			z |= ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1) << (18 - current_bit);
+			x |= ((GPIO_buf[i] >> DATA_X_OFFSET) & 0x1) << (18 - current_bit);
+			y |= ((GPIO_buf[i] >> DATA_Y_OFFSET) & 0x1) << (18 - current_bit);
+			z |= ((GPIO_buf[i] >> DATA_Z_OFFSET) & 0x1) << (18 - current_bit);
 
 		} else if (current_bit == 19){
 			current_bit = 0xff; /* to reset the value "current_bit" on next step*/
@@ -260,9 +263,9 @@ void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size, 
 
 			x = 0x0; y = 0x0; z = 0x0;
 
-			if (!(calc_PE(data_buf_x[current_frame], ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1), DATA_XY2_LEN)
-					&& calc_PE(data_buf_y[current_frame], ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1), DATA_XY2_LEN)
-					&& calc_PE(data_buf_z[current_frame], ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN))) {
+			if (!(calc_PE(data_buf_x[current_frame], ((GPIO_buf[i] >> DATA_X_OFFSET) & 0x1), DATA_XY2_LEN)
+					&& calc_PE(data_buf_y[current_frame], ((GPIO_buf[i] >> DATA_Y_OFFSET) & 0x1), DATA_XY2_LEN)
+					&& calc_PE(data_buf_z[current_frame], ((GPIO_buf[i] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN))) {
 				fault_frames[fault_frames_idx] = current_frame;
 				if (fault_frames_idx > 256) {
 					fault_frames_idx = 0;
@@ -273,6 +276,7 @@ void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size, 
 		}
 		current_bit++;
 	}
+	GPIOA->BSRR |= GPIO_BSRR_BR4;
 }
 
 //-----------------------------------------------------------------------------

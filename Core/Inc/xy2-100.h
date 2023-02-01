@@ -43,7 +43,8 @@ extern frame_num, bit_num;
 extern uint32_t fault_frames[256];
 extern uint32_t fault_frames_idx;
 extern uint8_t is_sync;
-extern uint16_t offset_idx;
+extern uint16_t GPIOx_offset_idx;
+extern uint16_t data_offset_idx;
 extern uint16_t sample_counter;
 extern uint8_t flag;
 extern uint8_t sample_finished;
@@ -67,8 +68,8 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream);
 void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t dstAdrr, uint16_t dataSize);
 
 void find_offset(uint16_t* buf_GPIO);
-void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
-void data_processing_test(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size);
+void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
+void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size);
 //void data_processing(uint16_t* buf_GPIO, struct Data_XY2_100* buf_data, uint16_t* buf_sync, uint16_t buf_size);
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len);
 
