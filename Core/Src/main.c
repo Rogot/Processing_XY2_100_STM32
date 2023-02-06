@@ -107,7 +107,7 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int a = 0;
 /* USER CODE END 0 */
 
 /**
@@ -144,10 +144,9 @@ int main(void)
   CMSIS_GPIO_Init();
   CMSIS_EXTI_Init();
   //TIM2_Init();
-  CMSIS_DMA_Init(DMA2_Stream1);
-  CMSIS_DMA_Config(DMA2_Stream1, &GPIOA->IDR, (uint32_t)GPIOx_buff, GPIOx_BUF_SIZE);
+  CMSIS_DMA_Init(DMA2_Stream2);
+  CMSIS_DMA_Config(DMA2_Stream2, &GPIOA->IDR, (uint32_t)GPIOx_buff, GPIOx_BUF_SIZE);
   CMSIS_TIM8_Init();
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -289,42 +288,70 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 void DMA2_Stream2_IRQHandler(void){
-	if (DMA2->LISR & DMA_LISR_HTIF2){
-		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
-	}
 
-	if (DMA2->LISR & DMA_LISR_TCIF2){
-		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
-	}
-}
+//	if (DMA2->LISR & DMA_LISR_HTIF2){
+//		GPIOA->BSRR |= GPIO_BSRR_BS4;
+//		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
+//	}
+//
+//	if (DMA2->LISR & DMA_LISR_TCIF2){
+//		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
+//		GPIOA->BSRR |= GPIO_BSRR_BR4;
+//	}
 
-uint8_t a = 0;
 
-void DMA2_Stream1_IRQHandler(void){
-	GPIOA->BSRR |= GPIO_BSRR_BS4;
 	if (!COF){
 		find_offset(GPIOx_buff);
 		COF = 0x1;
 	}
 
-	if ((DMA2->LISR & DMA_LISR_HTIF1) && !(DMA2->LISR & DMA_LISR_TCIF1)){
-			DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
-			//data_processing_test(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
-			data_processing(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
-	} else if (DMA2->LISR & DMA_LISR_HTIF1){
-		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+	if ((DMA2->LISR & DMA_LISR_HTIF2) && !(DMA2->LISR & DMA_LISR_TCIF2)){
+		GPIOA->BSRR |= GPIO_BSRR_BS4;
+		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
+		//data_processing_test(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
+		data_processing(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
+	} else if (DMA2->LISR & DMA_LISR_HTIF2){
+		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
 	}
 
-	if (DMA2->LISR & DMA_LISR_TCIF1){
-		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
+	if (DMA2->LISR & DMA_LISR_TCIF2){
+		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
 		data_processing(GPIOx_buff, GPIOx_BUF_SIZE,
 				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx, DATA_BUF_HALF_SIZE - data_offset_idx - 1);
+		GPIOA->BSRR |= GPIO_BSRR_BR4;
 	}
-	GPIOA->BSRR |= GPIO_BSRR_BR4;
 }
 
-void TIM8_IRQHandler(void) {
+void DMA2_Stream1_IRQHandler(void){
 
+//	if (DMA2->LISR & DMA_LISR_HTIF1){
+//		GPIOA->BSRR |= GPIO_BSRR_BS4;
+//		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+//	}
+//
+//	if (DMA2->LISR & DMA_LISR_TCIF1){
+//			DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
+//			GPIOA->BSRR |= GPIO_BSRR_BR4;
+//	}
+
+//	if (!COF){
+//		find_offset(GPIOx_buff);
+//		COF = 0x1;
+//	}
+//
+//	if ((DMA2->LISR & DMA_LISR_HTIF1) && !(DMA2->LISR & DMA_LISR_TCIF1)){
+//			DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+//			//data_processing_test(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
+//			data_processing(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
+//	} else if (DMA2->LISR & DMA_LISR_HTIF1){
+//		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+//	}
+//
+//	if (DMA2->LISR & DMA_LISR_TCIF1){
+//		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
+//		data_processing(GPIOx_buff, GPIOx_BUF_SIZE,
+//				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx, DATA_BUF_HALF_SIZE - data_offset_idx - 1);
+//	}
 }
 
 void TIM2_IRQHandler(void) {

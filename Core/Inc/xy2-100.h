@@ -17,9 +17,9 @@
 #define TIM2_CCR1_Address			((uint32_t)TIM2_Address + 0x34)
 #define TIM2_CCR2_Address			((uint32_t)TIM2_Address + 0x38)
 
-#define GPIOx_BUF_SIZE				20000
+#define GPIOx_BUF_SIZE				40000
 #define GPIOx_BUF_HALF_SIZE			GPIOx_BUF_SIZE / 2
-#define DATA_BUF_SIZE				1000
+#define DATA_BUF_SIZE				GPIOx_BUF_SIZE / 20
 #define DATA_BUF_HALF_SIZE			DATA_BUF_SIZE / 2
 #define DATA_XY2_LEN				20
 #define DATA_XY2_USB_LEN			8
