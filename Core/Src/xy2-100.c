@@ -234,69 +234,65 @@ void find_offset(uint16_t* buf_GPIO){
 	}
 }
 
-void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
+void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
 	// We take into account the data offset, so the value of the initial bit is "1"
 	//GPIOA->BSRR |= GPIO_BSRR_BS4;
-	int8_t current_bit = 15;
-	uint16_t current_frame = start_addr_data_buf;
+	uint16_t prev_X = 0, prev_Y = 0;
+	int8_t current_bit;
+	//uint16_t current_frame = start_addr_data_buf;
 
 	uint16_t x = 0, y = 0, z = 0;
 
-	for (uint16_t i = start_addr_gpio_buf + 3; i < GPIO_buf_size - GPIOx_offset_idx; ++i){
+	/*
+	 * Внешний цикл - перемещение по фреймам, вложенный - обработка фрейма
+	 * */
 
-		if (current_bit >= 0 && current_bit < 16) {
-			/*
-			 * recording each bit taking into account its location
-			 */
+	for (uint16_t i = start_addr_gpio_buf + 3;
+			i < GPIO_buf_size - GPIOx_offset_idx; i += DATA_XY2_LEN) {
+		current_bit = 15;
+		for (uint16_t j = i; j < i + 16; ++j) {
+			x |= ((GPIO_buf[j] >> DATA_X_OFFSET) & 0x1) << (current_bit);
+			y |= ((GPIO_buf[j] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
+			z |= ((GPIO_buf[j] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+			current_bit--;
+		}
 
-			x |= ((GPIO_buf[i] >> DATA_X_OFFSET) & 0x1) << (current_bit);
-			y |= ((GPIO_buf[i] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
-			z |= ((GPIO_buf[i] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+		//if (flag && !sample_finished) {
+		if (flag) {
 
-		} else if (current_bit == -1){
-			current_bit = 16; /* to reset the value "current_bit" on next step*/
-			i += 3;
-			/*
-			 * check parity even
-			 */
-
-			if (flag && !sample_finished) {
+			//if ((x < 49000 && y < 49000) && (x > 15000 && y > 15000)) {
 				data_buf_x[sample_counter] = x;
 				data_buf_y[sample_counter] = y;
 				data_buf_z[sample_counter] = z;
-				if (sample_counter < DATA_BUF_SIZE - 1){
-					sample_counter++;
-				} else {
-				flag = 0x0;
+			//}
+
+			if (sample_counter < DATA_BUF_SIZE - 1) {
+				sample_counter++;
+			} else {
+				//flag = 0x0;
 				sample_finished = 0x1;
 				sample_counter = 0x0;
-				}
-			} else if ((x != CENTRAL_COORFINATE_X &&
-				y != CENTRAL_COORDINATE_Y) &&
-				(x != 0 &&
-				y != 0)) {
-
-				flag = 0x1;
 			}
-
-
-			x = 0x0; y = 0x0; z = 0x0;
-
-//			if (!(calc_PE(data_buf_x[current_frame], ((GPIO_buf[i] >> DATA_X_OFFSET) & 0x1), DATA_XY2_LEN)
-//					&& calc_PE(data_buf_y[current_frame], ((GPIO_buf[i] >> DATA_Y_OFFSET) & 0x1), DATA_XY2_LEN)
-//					&& calc_PE(data_buf_z[current_frame], ((GPIO_buf[i] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN))) {
-//				fault_frames[fault_frames_idx] = current_frame;
-//				if (fault_frames_idx > 256) {
-//					fault_frames_idx = 0;
-//				}
-//				fault_frames_idx++;
-//			}
-			i += DATA_XY2_LEN; /* Missed several coordinate for optimization */
-			current_frame++;
+		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
+				&& (x != 0 && y != 0)) {
+			flag = 0x1;
 		}
-		current_bit--;
+
+//		if (prev_X == x && prev_Y == y && (x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
+//				&& (x != 0 && y != 0)){
+//			transmission_end = 0x1;
+//			transmission_end = 0x1;
+//		}
+//
+//		prev_X = x;
+//		prev_Y = y;
+
+		x = 0x0;
+		y = 0x0;
+		z = 0x0;
+
+		i += DATA_XY2_LEN; /* Missed several coordinate for optimization */
 	}
-	//GPIOA->BSRR |= GPIO_BSRR_BR4;
 }
 
 //-----------------------------------------------------------------------------
