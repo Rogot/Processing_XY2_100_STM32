@@ -10,7 +10,7 @@ void CMSIS_GPIO_Init(void){
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; //Enable GPIOA
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN; //Enable GPIOC
 
-	/* Временная замена информационных пинов */
+	/* Информационные пины */
 	/*	PA10 - X	*/
 	GPIOA->MODER &= ~GPIO_MODER_MODE10; // Input mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR10_1; //High speed
@@ -23,16 +23,21 @@ void CMSIS_GPIO_Init(void){
 	GPIOA->MODER &= ~GPIO_MODER_MODE6; // Input mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR6_1; //High speed
 
-	/*	PA0 - CLCK*/
-	GPIOA->MODER |= GPIO_MODER_MODE0_1; // Alternative mode
-	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR0_1; //High speed
-	GPIOA->AFR[0] |= GPIO_AFRL_AFRL0_0 | GPIO_AFRL_AFRL0_1; //Alternate function for PA0 - AF3 (TIM8..TIM11)
+//	/*	PA0 - CLCK*/
+//	GPIOA->MODER |= GPIO_MODER_MODE0_1; // Alternative mode
+//	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR0_1; //High speed
+//	GPIOA->AFR[0] |= GPIO_AFRL_AFRL0_0 | GPIO_AFRL_AFRL0_1; //Alternate function for PA0 - AF3 (TIM8..TIM11)
+
+	/*	PC6 - CLCK*/
+	GPIOC->MODER |= GPIO_MODER_MODE6_1; // Alternative mode
+	GPIOC->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR6_1; //High speed
+	GPIOC->AFR[0] |= GPIO_AFRL_AFRL6_0 | GPIO_AFRL_AFRL6_1; //Alternate function for PC6 - AF3 (TIM8..TIM11)
 
 	/*	PA2 - SYNC	*/
 	GPIOA->MODER &= ~GPIO_MODER_MODE2; // Input mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR2_1; //High speed
 
-	/* ~Временная замена информационных пинов~ */
+	/* ~Информационные пины~ */
 
 	// PA1 - TIM2 input channel 2
 	GPIOA->MODER &= ~GPIO_MODER_MODE1;
@@ -47,6 +52,16 @@ void CMSIS_GPIO_Init(void){
 	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR3_1; //High speed
 	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD3_1; //Pull-down
 	GPIOA->AFR[0] |= GPIO_AFRL_AFRL3_0; //Alternate function for PA3 - AF1 (TIM1/TIM2)
+
+
+	/* TEMP (проверка работы DMA) - удалить */
+
+	/* PA4 - время работы DMA */
+	GPIOA->MODER &= ~GPIO_MODER_MODE4;
+	GPIOA->MODER |= GPIO_MODER_MODE4_0; //Output mode
+	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR4_1;
+
+	/* TEMP (проверка работы DMA) - удалить */
 
 }
 
@@ -66,7 +81,7 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream){
 	dma_stream->CR |= DMA_SxCR_PSIZE_0; // 16 bit
 	dma_stream->CR |= DMA_SxCR_MINC; //Memory increment mode enable
 	dma_stream->CR &= ~DMA_SxCR_PINC; //Peripheral increment mode disable
-	//dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
+	dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
 	dma_stream->CR |= DMA_SxCR_HTIE; //Interrupt half enable
 }
 
@@ -84,7 +99,7 @@ void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t
 
 	dma_stream->CR |= DMA_SxCR_EN; //Stream enable
 
-	//NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+	NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 	NVIC_EnableIRQ(DMA2_Stream1_IRQn);
 }
 
@@ -125,14 +140,24 @@ void CMSIS_TIM1_Init(void){
 void CMSIS_TIM8_Init(void){
 	RCC->APB2ENR |= RCC_APB2ENR_TIM8EN; // Enable TIM8
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; //Enable GPIOA
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN; //Enable GPIOC
 
 	TIM8->PSC = 0;
-	TIM8->ARR = 420;
+	TIM8->ARR = 1;
 
-	TIM8->SMCR |= TIM_SMCR_ECE; // External clock mode 2 enable
-	TIM8->SMCR |= TIM_SMCR_ETP; //ETR is inverted
+	TIM8->CR1 &= (uint32_t) (~TIM_CR1_ARPE); //Auto-reload preload enable
 
-	TIM8->DIER |= TIM_DIER_UDE; // Update DMA request enable
+	TIM8->CCMR1 |= (uint32_t) TIM_CCMR1_CC1S_0; //CC1 channel is conf as input
+	TIM8->CCMR1 &= (uint32_t) (~(TIM_CCMR1_IC1F | TIM_CCMR1_IC1PSC));
+
+	TIM8->CCER &= (uint32_t) ~TIM_CCER_CC1P; //Rising edge
+	//TIM8->CCER |= TIM_CCER_CC1NP; //Both edge
+	TIM8->CCER |= (uint32_t) TIM_CCER_CC1E;
+	TIM8->DIER |= (uint32_t) TIM_DIER_CC1DE; //Allow interruption by DMA
+
+	for (uint16_t i = 0; i < 0xffff; i++); //delay for avoiding fatal error
+
+	NVIC_EnableIRQ(TIM8_CC_IRQn); // TIM8 global interrupt enable
 }
 
 //-----------------------------------------------------------------------------
@@ -195,48 +220,64 @@ void CMSIS_EXTI_Init(void){
 }
 
 void find_offset(uint16_t* buf_GPIO){
-	offset_idx = 0;
-	while ((buf_GPIO[offset_idx] & 0x4) != 0) {
-		offset_idx++;
+	GPIOx_offset_idx = 0;
+	while ((buf_GPIO[GPIOx_offset_idx] & 0x4) != 0) {
+		GPIOx_offset_idx++;
 	}
-	if (DATA_XY2_LEN - offset_idx != 0) {
-		offset_idx = DATA_XY2_LEN - offset_idx;
+	if (DATA_XY2_LEN - GPIOx_offset_idx != 0) {
+		GPIOx_offset_idx = DATA_XY2_LEN - GPIOx_offset_idx - 1;
+		data_offset_idx = 1;
 	}
 	else {
-		offset_idx = 0;
+		GPIOx_offset_idx = 0;
+		data_offset_idx = 0;
 	}
 }
 
-void data_processing(uint16_t* buf_GPIO, uint16_t* buf_sync, uint16_t buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
+void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
 	// We take into account the data offset, so the value of the initial bit is "1"
-	uint8_t current_bit = 0x0;
+	//GPIOA->BSRR |= GPIO_BSRR_BS4;
+	int8_t current_bit;
 	uint16_t current_frame = start_addr_data_buf;
 
-	for (uint16_t i = start_addr_gpio_buf + DATA_XY2_LEN - offset_idx + 1; i < start_addr_gpio_buf + buf_size - offset_idx + 1; ++i){
-		if (current_bit > 2 && current_bit < 19) {
-			/*
-			 * recording each bit taking into account its location
-			 */
-			data_buf_x[current_frame] |= ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1) << (18 - current_bit);
-			data_buf_y[current_frame] |= ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1) << (18 - current_bit);
-			data_buf_z[current_frame] |= ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1) << (18 - current_bit);
-		} else if (current_bit == 19){
-			current_bit = 0xff; /* to reset the value "current_bit" on next step*/
-			/*
-			 * check parity even
-			 */
-			if (!(calc_PE(data_buf_x[current_frame], ((buf_GPIO[i] >> DATA_X_OFFSET) & 0x1), DATA_XY2_LEN)
-					&& calc_PE(data_buf_y[current_frame], ((buf_GPIO[i] >> DATA_Y_OFFSET) & 0x1), DATA_XY2_LEN)
-					&& calc_PE(data_buf_z[current_frame], ((buf_GPIO[i] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN))) {
-				fault_frames[fault_frames_idx] = current_frame;
-				if (fault_frames_idx > 256) {
-					fault_frames_idx = 0;
-				}
-				fault_frames_idx++;
-			}
-			current_frame++;
+	uint16_t x = 0, y = 0, z = 0;
+
+	/*
+	 * Внешний цикл - перемещение по фреймам, вложенный - обработка фрейма
+	 * */
+
+	for (uint16_t i = start_addr_gpio_buf + 3;
+			i < GPIO_buf_size - GPIOx_offset_idx; i += DATA_XY2_LEN) {
+		current_bit = 15;
+		for (uint16_t j = i; j < i + 16; ++j) {
+			x |= ((GPIO_buf[j] >> DATA_X_OFFSET) & 0x1) << (current_bit);
+			y |= ((GPIO_buf[j] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
+			z |= ((GPIO_buf[j] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+			current_bit--;
 		}
-		current_bit++;
+
+		if (flag && !sample_finished) {
+			data_buf_x[sample_counter] = x;
+			data_buf_y[sample_counter] = y;
+			data_buf_z[sample_counter] = z;
+			if (sample_counter < DATA_BUF_SIZE - 1) {
+				sample_counter++;
+			} else {
+				flag = 0x0;
+				sample_finished = 0x1;
+				sample_counter = 0x0;
+			}
+		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
+				&& (x != 0 && y != 0)) {
+
+			flag = 0x1;
+		}
+
+		x = 0x0;
+		y = 0x0;
+		z = 0x0;
+
+		i += DATA_XY2_LEN; /* Missed several coordinate for optimization */
 	}
 }
 

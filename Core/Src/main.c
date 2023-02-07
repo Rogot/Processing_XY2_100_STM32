@@ -50,7 +50,10 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
-uint16_t sync_buff[GPIOx_BUF_SIZE] = {0};
+uint16_t sample_counter = 0x0;
+uint8_t flag = 0x0, sample_finished = 0x0;
+
+
 //struct Data_XY2_100 data_buff[DATA_BUF_SIZE] = {0};
 
 /*******TEST**********/
@@ -65,7 +68,8 @@ static int idx_frame = 0;
 uint16_t buff_impuls[2] = {0};
 uint16_t GPIOx_buff[GPIOx_BUF_SIZE] = {0};
 
-uint16_t offset_idx = 0;
+uint16_t GPIOx_offset_idx = 0;
+uint16_t data_offset_idx = 0;
 uint8_t COF = 0x0; //Check offset flag
 
 //uint16_t dma_buff[DMA_BUFF_SIZE];
@@ -103,7 +107,7 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int a = 0;
 /* USER CODE END 0 */
 
 /**
@@ -140,24 +144,9 @@ int main(void)
   CMSIS_GPIO_Init();
   CMSIS_EXTI_Init();
   //TIM2_Init();
-  CMSIS_DMA_Init(DMA2_Stream1);
-  CMSIS_DMA_Config(DMA2_Stream1, &GPIOA->IDR, (uint32_t)GPIOx_buff, GPIOx_BUF_SIZE);
+  CMSIS_DMA_Init(DMA2_Stream2);
+  CMSIS_DMA_Config(DMA2_Stream2, &GPIOA->IDR, (uint32_t)GPIOx_buff, GPIOx_BUF_SIZE);
   CMSIS_TIM8_Init();
-
-  //HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_2);
-  //HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
-
-  uint8_t testDataToSend[8];
-  for (uint8_t i = 0; i < 8; i++){
-	  testDataToSend[i] = i;
-  }
-  testDataToSend[7] = '\n';
-
-  uint16_t testDataToSending[SEND_ARR_SIZE];
-  for (uint8_t i = 0; i < SEND_ARR_SIZE; i++){
-	  testDataToSending[i] = i + 1;
-  }
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -167,22 +156,20 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	//HAL_Delay(2000);
-	//CDC_Transmit_FS(testDataToSend, DATA_XY2_USB_LEN);
 
 	if (COF) {
-		if (idx_frame >= DATA_BUF_SIZE - offset_idx - 1){
+
+		if (idx_frame >= DATA_BUF_SIZE - data_offset_idx - 1){
 			idx_frame = 0;
 		}
-		if (data_buf_x[idx_frame] != CENTRAL_COORFINATE_X
-				&& data_buf_y[idx_frame] != CENTRAL_COORDINATE_Y) {
+		if (sample_finished) {
+
 			data_buf_tran[0] = data_buf_x[idx_frame];
 			data_buf_tran[1] = data_buf_y[idx_frame];
 			data_buf_tran[2] = data_buf_z[idx_frame];
 			CDC_Transmit_FS(data_buf_tran, SEND_BYTE_SIZE);
+			idx_frame++;
 		}
-		//CDC_Transmit_FS(testDataToSending, SEND_BYTE_SIZE);
-		idx_frame++;
 	}
   }
   /* USER CODE END 3 */
@@ -301,38 +288,72 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 void DMA2_Stream2_IRQHandler(void){
-	if (DMA2->LISR & DMA_LISR_HTIF2){
-		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
-	}
 
-	if (DMA2->LISR & DMA_LISR_TCIF2){
-		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
-	}
-}
+//	if (DMA2->LISR & DMA_LISR_HTIF2){
+//		GPIOA->BSRR |= GPIO_BSRR_BS4;
+//		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
+//	}
+//
+//	if (DMA2->LISR & DMA_LISR_TCIF2){
+//		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
+//		GPIOA->BSRR |= GPIO_BSRR_BR4;
+//	}
 
-uint8_t a = 0;
-
-void DMA2_Stream1_IRQHandler(void){
 
 	if (!COF){
 		find_offset(GPIOx_buff);
 		COF = 0x1;
 	}
 
-	if (DMA2->LISR & DMA_LISR_HTIF1){
-		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
-		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE, 0x0, 0x0);
+	if ((DMA2->LISR & DMA_LISR_HTIF2) && !(DMA2->LISR & DMA_LISR_TCIF2)){
+		GPIOA->BSRR |= GPIO_BSRR_BS4;
+		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
+		data_processing_test(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
+		//data_processing(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
+	} else if (DMA2->LISR & DMA_LISR_HTIF2){
+		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
 	}
 
-	if (DMA2->LISR & DMA_LISR_TCIF1){
-		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
-		data_processing(GPIOx_buff, sync_buff, GPIOx_BUF_HALF_SIZE - offset_idx,
-				GPIOx_BUF_HALF_SIZE, DATA_BUF_HALF_SIZE - 1);
+	if (DMA2->LISR & DMA_LISR_TCIF2){
+		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
+		data_processing_test(GPIOx_buff, GPIOx_BUF_SIZE,
+				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx, DATA_BUF_HALF_SIZE - data_offset_idx - 1);
+//		data_processing(GPIOx_buff, GPIOx_BUF_SIZE,
+//				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx, DATA_BUF_HALF_SIZE - data_offset_idx - 1);
+		GPIOA->BSRR |= GPIO_BSRR_BR4;
 	}
 }
 
-void TIM8_IRQHandler(void) {
+void DMA2_Stream1_IRQHandler(void){
 
+//	if (DMA2->LISR & DMA_LISR_HTIF1){
+//		GPIOA->BSRR |= GPIO_BSRR_BS4;
+//		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+//	}
+//
+//	if (DMA2->LISR & DMA_LISR_TCIF1){
+//			DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
+//			GPIOA->BSRR |= GPIO_BSRR_BR4;
+//	}
+
+//	if (!COF){
+//		find_offset(GPIOx_buff);
+//		COF = 0x1;
+//	}
+//
+//	if ((DMA2->LISR & DMA_LISR_HTIF1) && !(DMA2->LISR & DMA_LISR_TCIF1)){
+//			DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+//			//data_processing_test(GPIOx_buff, sync_buff, GPIOx_BUF_SIZE);
+//			data_processing(GPIOx_buff, GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
+//	} else if (DMA2->LISR & DMA_LISR_HTIF1){
+//		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
+//	}
+//
+//	if (DMA2->LISR & DMA_LISR_TCIF1){
+//		DMA2->LIFCR |= DMA_LIFCR_CTCIF1;
+//		data_processing(GPIOx_buff, GPIOx_BUF_SIZE,
+//				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx, DATA_BUF_HALF_SIZE - data_offset_idx - 1);
+//	}
 }
 
 void TIM2_IRQHandler(void) {
