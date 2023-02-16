@@ -33,15 +33,9 @@
 #define CENTRAL_COORFINATE_X		32767
 #define CENTRAL_COORDINATE_Y		32768
 
-//struct Data_XY2_100{
-//	uint16_t x;
-//	uint16_t y;
-//	uint16_t z;
-//};
-
 extern frame_num, bit_num;
-extern uint32_t fault_frames[256];
-extern uint32_t fault_frames_idx;
+extern uint16_t fault_frames[256];
+extern uint8_t fault_frames_idx;
 extern uint8_t is_sync;
 extern uint16_t GPIOx_offset_idx;
 extern uint16_t data_offset_idx;
@@ -54,9 +48,25 @@ extern uint8_t transmission_end;
 extern uint16_t sync_buff[GPIOx_BUF_SIZE];
 extern uint16_t GPIOx_buff[GPIOx_BUF_SIZE];
 
-extern uint16_t data_buf_x[DATA_BUF_SIZE];
-extern uint16_t data_buf_y[DATA_BUF_SIZE];
-extern uint16_t data_buf_z[DATA_BUF_SIZE];
+typedef struct DATA_XYZ {
+	uint16_t x;
+	uint16_t y;
+	uint16_t z;
+}t_DATA;
+
+extern t_DATA data_buf[DATA_BUF_SIZE];
+extern t_DATA data_buf_first[DATA_BUF_HALF_SIZE];
+extern t_DATA data_buf_second[DATA_BUF_HALF_SIZE];
+
+
+extern uint8_t proc_1_ready, proc_2_ready;
+extern uint8_t proc_1_busy, proc_2_busy;
+extern uint8_t trans_1_ready, trans_2_ready;
+extern uint8_t trans_1_busy, trans_2_busy;
+extern uint8_t overrun;
+
+
+extern uint32_t count;
 
 
 /* Functions */
@@ -69,8 +79,8 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream);
 void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t dstAdrr, uint16_t dataSize);
 
 void find_offset(uint16_t* buf_GPIO);
-void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
-void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
+//void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
+void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len);
 
 /* ~Functions~ */

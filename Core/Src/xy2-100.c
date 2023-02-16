@@ -56,11 +56,15 @@ void CMSIS_GPIO_Init(void){
 
 	/* TEMP (проверка работы DMA) - удалить */
 
-	/* PA4 - время работы DMA */
+	/* PA4 - шип 1 */
 	GPIOA->MODER &= ~GPIO_MODER_MODE4;
 	GPIOA->MODER |= GPIO_MODER_MODE4_0; //Output mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR4_1;
 
+	/* PA7 - шип 2*/
+	GPIOA->MODER &= ~GPIO_MODER_MODE7;
+	GPIOA->MODER |= GPIO_MODER_MODE7_0; //Output mode
+	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR7_1;
 	/* TEMP (проверка работы DMA) - удалить */
 
 }
@@ -224,7 +228,7 @@ void find_offset(uint16_t* buf_GPIO){
 	while ((buf_GPIO[GPIOx_offset_idx] & 0x4) != 0) {
 		GPIOx_offset_idx++;
 	}
-	if (DATA_XY2_LEN - GPIOx_offset_idx != 0) {
+	if (DATA_XY2_LEN - GPIOx_offset_idx > 1) {
 		GPIOx_offset_idx = DATA_XY2_LEN - GPIOx_offset_idx - 1;
 		data_offset_idx = 1;
 	}
@@ -234,10 +238,10 @@ void find_offset(uint16_t* buf_GPIO){
 	}
 }
 
-void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
+void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size,
+		uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
 	// We take into account the data offset, so the value of the initial bit is "1"
 	//GPIOA->BSRR |= GPIO_BSRR_BS4;
-	uint16_t prev_X = 0, prev_Y = 0;
 	int8_t current_bit;
 	//uint16_t current_frame = start_addr_data_buf;
 
@@ -257,35 +261,49 @@ void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t s
 			current_bit--;
 		}
 
+
 		//if (flag && !sample_finished) {
 		if (flag) {
+			if ((x > 25000 && x < 40000) && (y > 25000 && y < 40000)) {
+				data_buf[sample_counter].x = x;
+				data_buf[sample_counter].y = y;
+				data_buf[sample_counter].z = z;
 
-			//if ((x < 49000 && y < 49000) && (x > 15000 && y > 15000)) {
-				data_buf_x[sample_counter] = x;
-				data_buf_y[sample_counter] = y;
-				data_buf_z[sample_counter] = z;
-			//}
+				if (sample_counter < DATA_BUF_HALF_SIZE) {
+					sample_counter++;
+				} else {
+					flag = 0x0;
+					sample_counter = 0x0;
+				}
 
-			if (sample_counter < DATA_BUF_SIZE - 1) {
-				sample_counter++;
-			} else {
-				//flag = 0x0;
-				sample_finished = 0x1;
-				sample_counter = 0x0;
 			}
+			else if (x == 0 && y == 0){
+				count++;
+			}
+
 		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
 				&& (x != 0 && y != 0)) {
 			flag = 0x1;
 		}
 
-//		if (prev_X == x && prev_Y == y && (x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
-//				&& (x != 0 && y != 0)){
-//			transmission_end = 0x1;
-//			transmission_end = 0x1;
+//		if ((x == CENTRAL_COORFINATE_X && y == CENTRAL_COORDINATE_Y)) {
+//			flag = 0x0;
 //		}
+
 //
-//		prev_X = x;
-//		prev_Y = y;
+//		if (!(calc_PE(x, ((GPIO_buf[i + 16] >> DATA_X_OFFSET) & 0x1),
+//				16)
+//				&& calc_PE(y, ((GPIO_buf[i + 16] >> DATA_Y_OFFSET) & 0x1),
+//						16)
+//		//&& calc_PE(z,
+//		//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
+//		)) {
+//			fault_frames[fault_frames_idx] = sample_counter;
+//			fault_frames_idx++;
+//			if (fault_frames_idx > 256) {
+//				fault_frames_idx = 0;
+//			}
+//		}
 
 		x = 0x0;
 		y = 0x0;
@@ -302,7 +320,7 @@ void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t s
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len){
 	uint8_t sum = 0;
 
-	for (uint8_t i = 0; i < len; i++){
+	for (uint8_t idx = 0; idx < len; idx++){
 		if ((data & 0x1) == 1){
 			sum++;
 		}
