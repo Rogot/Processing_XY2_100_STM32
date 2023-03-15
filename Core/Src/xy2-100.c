@@ -56,11 +56,15 @@ void CMSIS_GPIO_Init(void){
 
 	/* TEMP (проверка работы DMA) - удалить */
 
-	/* PA4 - время работы DMA */
+	/* PA4 - шип 1 */
 	GPIOA->MODER &= ~GPIO_MODER_MODE4;
 	GPIOA->MODER |= GPIO_MODER_MODE4_0; //Output mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR4_1;
 
+	/* PA7 - шип 2*/
+	GPIOA->MODER &= ~GPIO_MODER_MODE7;
+	GPIOA->MODER |= GPIO_MODER_MODE7_0; //Output mode
+	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR7_1;
 	/* TEMP (проверка работы DMA) - удалить */
 
 }
@@ -224,7 +228,7 @@ void find_offset(uint16_t* buf_GPIO){
 	while ((buf_GPIO[GPIOx_offset_idx] & 0x4) != 0) {
 		GPIOx_offset_idx++;
 	}
-	if (DATA_XY2_LEN - GPIOx_offset_idx != 0) {
+	if (DATA_XY2_LEN - GPIOx_offset_idx > 1) {
 		GPIOx_offset_idx = DATA_XY2_LEN - GPIOx_offset_idx - 1;
 		data_offset_idx = 1;
 	}
@@ -234,13 +238,52 @@ void find_offset(uint16_t* buf_GPIO){
 	}
 }
 
-void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
+void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size,
+		uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
 	// We take into account the data offset, so the value of the initial bit is "1"
 	//GPIOA->BSRR |= GPIO_BSRR_BS4;
 	int8_t current_bit;
-	uint16_t current_frame = start_addr_data_buf;
+	int8_t temp_i;
 
 	uint16_t x = 0, y = 0, z = 0;
+
+	if (FPBGP){
+		current_bit = 15;
+		uint16_t t = GPIOx_BUF_SIZE - GPIOx_offset_idx + 3;
+		for (; t < GPIOx_BUF_SIZE; t++){
+			x |= ((GPIO_buf[t] >> DATA_X_OFFSET) & 0x1) << (current_bit);
+			y |= ((GPIO_buf[t] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
+			z |= ((GPIO_buf[t] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+			current_bit--;
+		}
+
+		if (3 - GPIOx_offset_idx < 0){
+			t = 0;
+		} else {
+			t = 3 - GPIOx_offset_idx;
+		}
+
+		for (; current_bit > -1; current_bit--){
+			x |= ((GPIO_buf[t] >> DATA_X_OFFSET) & 0x1) << (current_bit);
+			y |= ((GPIO_buf[t] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
+			z |= ((GPIO_buf[t] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+			t++;
+		}
+
+		if (FFP){
+		data_buf[sample_counter].x = x;
+		data_buf[sample_counter].y = y;
+		data_buf[sample_counter].z = z;
+		} else {
+			FFP = 0x1;
+		}
+
+		x = 0x0;
+		y = 0x0;
+		z = 0x0;
+
+		sample_counter++;
+	}
 
 	/*
 	 * Внешний цикл - перемещение по фреймам, вложенный - обработка фрейма
@@ -256,20 +299,41 @@ void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t s
 			current_bit--;
 		}
 
-		if (flag && !sample_finished) {
-			data_buf_x[sample_counter] = x;
-			data_buf_y[sample_counter] = y;
-			data_buf_z[sample_counter] = z;
-			if (sample_counter < DATA_BUF_SIZE - 1) {
-				sample_counter++;
-			} else {
-				flag = 0x0;
-				sample_finished = 0x1;
-				sample_counter = 0x0;
-			}
+
+		//if (flag && !sample_finished) {
+		if (flag) {
+			//if ((x > 25000 && x < 40000) && (y > 25000 && y < 40000)) {
+				data_buf[sample_counter].x = x;
+				data_buf[sample_counter].y = y;
+				data_buf[sample_counter].z = z;
+
+				if (sample_counter < DATA_BUF_HALF_SIZE) {
+					sample_counter++;
+				} else {
+					GPIOA->BSRR |= GPIO_BSRR_BS7;
+					for (int t = 0; t < 10000; t++);
+					flag = 0x0;
+					sample_counter = 0x0;
+					GPIOA->BSRR |= GPIO_BSRR_BR7;
+				}
+				temp_i = i + 16;
+
+//				if (!(calc_PE(x, ((GPIO_buf[temp_i] >> DATA_X_OFFSET) & 0x1), 16)
+//						&& calc_PE(y, ((GPIO_buf[temp_i] >> DATA_Y_OFFSET) & 0x1), 16)
+//				//&& calc_PE(z,
+//				//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
+//				)) {
+//					fault_frames[fault_frames_idx] = sample_counter;
+//					fault_frames_idx++;
+//					if (fault_frames_idx > 256) {
+//						fault_frames_idx = 0;
+//					}
+//				}
+
+			//}
+
 		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
 				&& (x != 0 && y != 0)) {
-
 			flag = 0x1;
 		}
 
@@ -288,7 +352,7 @@ void data_processing_test(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t s
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len){
 	uint8_t sum = 0;
 
-	for (uint8_t i = 0; i < len; i++){
+	for (uint8_t idx = 0; idx < len; idx++){
 		if ((data & 0x1) == 1){
 			sum++;
 		}
