@@ -243,6 +243,7 @@ void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_bu
 	// We take into account the data offset, so the value of the initial bit is "1"
 	//GPIOA->BSRR |= GPIO_BSRR_BS4;
 	int8_t current_bit;
+	int8_t temp_i;
 	//uint16_t current_frame = start_addr_data_buf;
 
 	uint16_t x = 0, y = 0, z = 0;
@@ -264,7 +265,7 @@ void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_bu
 
 		//if (flag && !sample_finished) {
 		if (flag) {
-			if ((x > 25000 && x < 40000) && (y > 25000 && y < 40000)) {
+			//if ((x > 25000 && x < 40000) && (y > 25000 && y < 40000)) {
 				data_buf[sample_counter].x = x;
 				data_buf[sample_counter].y = y;
 				data_buf[sample_counter].z = z;
@@ -275,35 +276,26 @@ void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_bu
 					flag = 0x0;
 					sample_counter = 0x0;
 				}
+				temp_i = i + 16;
 
-			}
-			else if (x == 0 && y == 0){
-				count++;
-			}
+				if (!(calc_PE(x, ((GPIO_buf[temp_i] >> DATA_X_OFFSET) & 0x1), 16)
+						&& calc_PE(y, ((GPIO_buf[temp_i] >> DATA_Y_OFFSET) & 0x1), 16)
+				//&& calc_PE(z,
+				//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
+				)) {
+					fault_frames[fault_frames_idx] = sample_counter;
+					fault_frames_idx++;
+					if (fault_frames_idx > 256) {
+						fault_frames_idx = 0;
+					}
+				}
+
+			//}
 
 		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
 				&& (x != 0 && y != 0)) {
 			flag = 0x1;
 		}
-
-//		if ((x == CENTRAL_COORFINATE_X && y == CENTRAL_COORDINATE_Y)) {
-//			flag = 0x0;
-//		}
-
-//
-//		if (!(calc_PE(x, ((GPIO_buf[i + 16] >> DATA_X_OFFSET) & 0x1),
-//				16)
-//				&& calc_PE(y, ((GPIO_buf[i + 16] >> DATA_Y_OFFSET) & 0x1),
-//						16)
-//		//&& calc_PE(z,
-//		//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
-//		)) {
-//			fault_frames[fault_frames_idx] = sample_counter;
-//			fault_frames_idx++;
-//			if (fault_frames_idx > 256) {
-//				fault_frames_idx = 0;
-//			}
-//		}
 
 		x = 0x0;
 		y = 0x0;

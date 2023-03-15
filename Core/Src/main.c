@@ -68,6 +68,8 @@ uint8_t overrun = 0x0;
 t_DATA data_buf_first[DATA_BUF_HALF_SIZE] = {0};
 t_DATA data_buf_second[DATA_BUF_HALF_SIZE] = {0};
 
+uint32_t total_send = 0;
+
 
 /******~TEST~*********/
 
@@ -163,19 +165,19 @@ int main(void)
 
 		if (COF) {
 			if (proc_1_ready) {
-				//GPIOA->BSRR |= GPIO_BSRR_BS4;
+				GPIOA->BSRR |= GPIO_BSRR_BS4;
 				overrun = 0x0;
 				proc_1_busy = 0x1;
 				data_processing_test(data_buf_first, GPIOx_buff,
 				GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
 				proc_1_busy = 0x0;
-				//GPIOA->BSRR |= GPIO_BSRR_BR4;
+				GPIOA->BSRR |= GPIO_BSRR_BR4;
 				proc_1_ready = 0x0;
 				trans_1_ready = 0x1;
 			}
 
 			if (proc_2_ready) {
-				//GPIOA->BSRR |= GPIO_BSRR_BS7;
+				GPIOA->BSRR |= GPIO_BSRR_BS7;
 				overrun = 0x0;
 				proc_2_busy = 0x1;
 				data_processing_test(data_buf_second, GPIOx_buff,
@@ -183,13 +185,13 @@ int main(void)
 				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx,
 				DATA_BUF_HALF_SIZE - data_offset_idx - 1);
 				proc_2_busy = 0x0;
-				//GPIOA->BSRR |= GPIO_BSRR_BR7;
+				GPIOA->BSRR |= GPIO_BSRR_BR7;
 				proc_2_ready = 0x0;
 				trans_2_ready = 0x1;
 			}
 
 			if (trans_1_ready && !trans_2_busy && flag) {
-				GPIOA->BSRR |= GPIO_BSRR_BS4;
+				//GPIOA->BSRR |= GPIO_BSRR_BS7;
 				trans_1_ready = 0x0;
 				trans_1_busy = 0x1;
 				status = CDC_Transmit_FS(data_buf_first,
@@ -197,7 +199,7 @@ int main(void)
 			}
 
 			if (trans_2_ready && !trans_1_busy && flag) {
-				GPIOA->BSRR |= GPIO_BSRR_BS7;
+				//GPIOA->BSRR |= GPIO_BSRR_BS7;
 				trans_2_ready = 0x0;
 				trans_2_busy = 0x1;
 				status = CDC_Transmit_FS(data_buf_second,

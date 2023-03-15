@@ -67,6 +67,7 @@ extern uint8_t overrun;
 
 
 extern uint32_t count;
+extern uint32_t total_send;
 
 
 /* Functions */
