@@ -17,9 +17,9 @@
 #define TIM2_CCR1_Address			((uint32_t)TIM2_Address + 0x34)
 #define TIM2_CCR2_Address			((uint32_t)TIM2_Address + 0x38)
 
-#define GPIOx_BUF_SIZE				40000
+#define GPIOx_BUF_SIZE				40080
 #define GPIOx_BUF_HALF_SIZE			GPIOx_BUF_SIZE / 2
-#define DATA_BUF_SIZE				GPIOx_BUF_SIZE / 20
+#define DATA_BUF_SIZE				GPIOx_BUF_SIZE / 20 / 2
 #define DATA_BUF_HALF_SIZE			DATA_BUF_SIZE / 2
 #define DATA_XY2_LEN				20
 #define DATA_XY2_USB_LEN			8
@@ -28,10 +28,10 @@
 #define DATA_X_OFFSET				10
 #define DATA_Y_OFFSET				9
 #define DATA_Z_OFFSET				6
-/* ~Defines~ */
 
 #define CENTRAL_COORFINATE_X		32767
 #define CENTRAL_COORDINATE_Y		32768
+/* ~Defines~ */
 
 extern frame_num, bit_num;
 extern uint16_t fault_frames[256];
@@ -66,6 +66,16 @@ extern uint8_t trans_1_busy, trans_2_busy;
 extern uint8_t overrun;
 
 
+extern uint8_t FPBGP;
+extern uint8_t FFP;
+extern uint16_t last_bits;
+
+
+extern uint32_t total_send;
+extern uint32_t total_send_1;
+extern uint32_t total_send_2;
+
+
 extern uint32_t count;
 extern uint32_t total_send;
 
@@ -81,7 +91,7 @@ void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t
 
 void find_offset(uint16_t* buf_GPIO);
 //void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
-void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
+void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf);
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len);
 
 /* ~Functions~ */

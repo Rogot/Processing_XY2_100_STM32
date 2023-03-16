@@ -50,8 +50,15 @@ uint32_t count = 0;
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
+uint32_t total_send = 0;
+uint32_t total_send_1 = 0;
+uint32_t total_send_2 = 0;
+
 uint16_t sample_counter = 0x0;
 uint8_t flag = 0x0, sample_finished = 0x0, transmission_end = 0x0;
+uint8_t FPBGP = 0; /* First part buffer GPIO processed */
+uint8_t FFP = 0; /* First frame processed */
+uint16_t last_bits = 0;
 
 
 /*******TEST**********/
@@ -67,8 +74,6 @@ uint8_t first_busy  = 0x0, second_busy = 0x1;
 uint8_t overrun = 0x0;
 t_DATA data_buf_first[DATA_BUF_HALF_SIZE] = {0};
 t_DATA data_buf_second[DATA_BUF_HALF_SIZE] = {0};
-
-uint32_t total_send = 0;
 
 
 /******~TEST~*********/
@@ -120,43 +125,43 @@ int a = 0;
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
+int main(void) {
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
-  CMSIS_GPIO_Init();
-  CMSIS_EXTI_Init();
-  //TIM2_Init();
-  CMSIS_DMA_Init(DMA2_Stream2);
-  CMSIS_DMA_Config(DMA2_Stream2, &GPIOA->IDR, (uint32_t)GPIOx_buff, GPIOx_BUF_SIZE);
-  CMSIS_TIM8_Init();
-  /* USER CODE END SysInit */
+	/* USER CODE BEGIN SysInit */
+	CMSIS_GPIO_Init();
+	CMSIS_EXTI_Init();
+	//TIM2_Init();
+	CMSIS_DMA_Init(DMA2_Stream2);
+	CMSIS_DMA_Config(DMA2_Stream2, &GPIOA->IDR, (uint32_t) GPIOx_buff,
+	GPIOx_BUF_SIZE);
+	CMSIS_TIM8_Init();
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_TIM2_Init();
-  MX_USB_DEVICE_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_TIM2_Init();
+	MX_USB_DEVICE_Init();
+	/* USER CODE BEGIN 2 */
 
-  /* USER CODE END 2 */
-	int cnt = 0;
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* USER CODE END 2 */
+
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 	while (1) {
 		/* USER CODE END WHILE */
 
@@ -168,8 +173,13 @@ int main(void)
 				GPIOA->BSRR |= GPIO_BSRR_BS4;
 				overrun = 0x0;
 				proc_1_busy = 0x1;
+				FPBGP = 0x1;
+
 				data_processing_test(data_buf_first, GPIOx_buff,
-				GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx, 0x0);
+				GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx);
+
+				FPBGP = 0x0;
+
 				proc_1_busy = 0x0;
 				GPIOA->BSRR |= GPIO_BSRR_BR4;
 				proc_1_ready = 0x0;
@@ -180,10 +190,11 @@ int main(void)
 				GPIOA->BSRR |= GPIO_BSRR_BS7;
 				overrun = 0x0;
 				proc_2_busy = 0x1;
+
 				data_processing_test(data_buf_second, GPIOx_buff,
 				GPIOx_BUF_SIZE,
-				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx,
-				DATA_BUF_HALF_SIZE - data_offset_idx - 1);
+				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx);
+
 				proc_2_busy = 0x0;
 				GPIOA->BSRR |= GPIO_BSRR_BR7;
 				proc_2_ready = 0x0;
@@ -196,6 +207,7 @@ int main(void)
 				trans_1_busy = 0x1;
 				status = CDC_Transmit_FS(data_buf_first,
 				SEND_BYTE_SIZE);
+				total_send_1 += SEND_BYTE_SIZE;
 			}
 
 			if (trans_2_ready && !trans_1_busy && flag) {
@@ -204,13 +216,8 @@ int main(void)
 				trans_2_busy = 0x1;
 				status = CDC_Transmit_FS(data_buf_second,
 				SEND_BYTE_SIZE);
+				total_send_2 += SEND_BYTE_SIZE;
 			}
-
-//			if (status == USBD_BUSY) {
-//				transmission_end++;
-//			} else if (status == USBD_OK) {
-//				transmission_end = transmission_end;
-//			}
 		}
 	}
 }

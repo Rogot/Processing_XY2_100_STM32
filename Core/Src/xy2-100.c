@@ -154,7 +154,8 @@ void CMSIS_TIM8_Init(void){
 	TIM8->CCMR1 |= (uint32_t) TIM_CCMR1_CC1S_0; //CC1 channel is conf as input
 	TIM8->CCMR1 &= (uint32_t) (~(TIM_CCMR1_IC1F | TIM_CCMR1_IC1PSC));
 
-	TIM8->CCER &= (uint32_t) ~TIM_CCER_CC1P; //Rising edge
+	//TIM8->CCER &= (uint32_t) ~TIM_CCER_CC1P; //Rising edge
+	TIM8->CCER |= (uint32_t) TIM_CCER_CC1P; //Falling edge
 	//TIM8->CCER |= TIM_CCER_CC1NP; //Both edge
 	TIM8->CCER |= (uint32_t) TIM_CCER_CC1E;
 	TIM8->DIER |= (uint32_t) TIM_DIER_CC1DE; //Allow interruption by DMA
@@ -238,15 +239,58 @@ void find_offset(uint16_t* buf_GPIO){
 	}
 }
 
-void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size,
-		uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf){
+void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf,
+		uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf) {
 	// We take into account the data offset, so the value of the initial bit is "1"
 	//GPIOA->BSRR |= GPIO_BSRR_BS4;
 	int8_t current_bit;
 	int8_t temp_i;
-	//uint16_t current_frame = start_addr_data_buf;
 
 	uint16_t x = 0, y = 0, z = 0;
+
+	if (FPBGP) {
+		current_bit = 15;
+		uint16_t t = GPIOx_BUF_SIZE - GPIOx_offset_idx + 3;
+		for (; t < GPIOx_BUF_SIZE; t++) {
+			x |= ((GPIO_buf[t] >> DATA_X_OFFSET) & 0x1) << (current_bit);
+			y |= ((GPIO_buf[t] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
+			z |= ((GPIO_buf[t] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+			current_bit--;
+		}
+
+		if (3 - GPIOx_offset_idx < 0) {
+			t = 0;
+		} else {
+			t = 3 - GPIOx_offset_idx;
+		}
+
+		for (; current_bit > -1; current_bit--) {
+			x |= ((GPIO_buf[t] >> DATA_X_OFFSET) & 0x1) << (current_bit);
+			y |= ((GPIO_buf[t] >> DATA_Y_OFFSET) & 0x1) << (current_bit);
+			z |= ((GPIO_buf[t] >> DATA_Z_OFFSET) & 0x1) << (current_bit);
+			t++;
+		}
+
+		if (flag) {
+			if (FFP) {
+				data_buf[sample_counter].x = x;
+				data_buf[sample_counter].y = y;
+				data_buf[sample_counter].z = z;
+			} else {
+				FFP = 0x1;
+			}
+
+			x = 0x0;
+			y = 0x0;
+			z = 0x0;
+
+			if (sample_counter < DATA_BUF_HALF_SIZE) {
+				sample_counter++;
+			} else {
+				sample_counter = 0x0;
+			}
+		}
+	}
 
 	/*
 	 * Внешний цикл - перемещение по фреймам, вложенный - обработка фрейма
@@ -262,35 +306,33 @@ void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_bu
 			current_bit--;
 		}
 
-
-		//if (flag && !sample_finished) {
 		if (flag) {
-			//if ((x > 25000 && x < 40000) && (y > 25000 && y < 40000)) {
-				data_buf[sample_counter].x = x;
-				data_buf[sample_counter].y = y;
-				data_buf[sample_counter].z = z;
+			data_buf[sample_counter].x = x;
+			data_buf[sample_counter].y = y;
+			data_buf[sample_counter].z = z;
 
-				if (sample_counter < DATA_BUF_HALF_SIZE) {
-					sample_counter++;
-				} else {
-					flag = 0x0;
-					sample_counter = 0x0;
+			if (sample_counter < DATA_BUF_HALF_SIZE) {
+				sample_counter++;
+				total_send++;
+			} else {
+				flag = 0x0;
+				sample_counter = 0x0;
+				count++;
+			}
+			temp_i = i + 16;
+
+			if (!(calc_PE(x, ((GPIO_buf[temp_i] >> DATA_X_OFFSET) & 0x1), 16)
+					&& calc_PE(y, ((GPIO_buf[temp_i] >> DATA_Y_OFFSET) & 0x1),
+							16)
+			//&& calc_PE(z,
+			//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
+			)) {
+				fault_frames[fault_frames_idx] = sample_counter;
+				fault_frames_idx++;
+				if (fault_frames_idx > 256) {
+					fault_frames_idx = 0;
 				}
-				temp_i = i + 16;
-
-				if (!(calc_PE(x, ((GPIO_buf[temp_i] >> DATA_X_OFFSET) & 0x1), 16)
-						&& calc_PE(y, ((GPIO_buf[temp_i] >> DATA_Y_OFFSET) & 0x1), 16)
-				//&& calc_PE(z,
-				//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
-				)) {
-					fault_frames[fault_frames_idx] = sample_counter;
-					fault_frames_idx++;
-					if (fault_frames_idx > 256) {
-						fault_frames_idx = 0;
-					}
-				}
-
-			//}
+			}
 
 		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
 				&& (x != 0 && y != 0)) {
