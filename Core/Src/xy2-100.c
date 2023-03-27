@@ -111,28 +111,23 @@ void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t
 // 	void CMSIS_TIM1_Init(void)
 //-----------------------------------------------------------------------------
 
-void CMSIS_TIM1_Init(void){
-	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
+void CMSIS_TIM3_Init(void){
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; //Enable GPIOA
 
-	TIM1->PSC = 0;
-	TIM1->ARR = 1;
+	TIM3->SMCR &= ~ TIM_SMCR_SMS;
 
-	TIM1->CR1 &= (uint32_t) (~TIM_CR1_ARPE); //Auto-reload preload enable
+	TIM3->PSC = 0xff; //169 MHz / 65536 = 2563 Hz
+	TIM3->ARR = 0x140A; // 2563 Hz / 2565 = 1 Hz
 
-	TIM1->CCMR1 |= (uint32_t) TIM_CCMR1_CC1S_0; //CC1 channel is conf as input
-	TIM1->CCMR1 &= (uint32_t) (~(TIM_CCMR1_IC1F | TIM_CCMR1_IC1PSC));
+	TIM3->CR1 &= TIM_CR1_DIR; //upcounter mode
+	TIM3->DIER |= TIM_DIER_UIE; //interrapt enable
 
-	TIM1->CCER &= (uint32_t) ~TIM_CCER_CC1P; //Rising edge
-	//TIM1->CCER |= (uint32_t) TIM_CCER_CC1P; //Falling edge
-	//TIM8->CCER |= TIM_CCER_CC1NP; //Both edge
-	TIM1->CCER |= (uint32_t) TIM_CCER_CC1E;
-
-	TIM1->DIER |= (uint32_t) TIM_DIER_CC1DE; //Allow interruption by DMA
+	//TIM3->CR1 &= (uint32_t) (~TIM_CR1_ARPE); //Auto-reload preload enable
 
 	for (uint16_t i = 0; i < 0xffff; i++); //delay for avoiding fatal error
 
-	NVIC_EnableIRQ(TIM1_CC_IRQn); // TIM1 global interrupt enable
+	NVIC_EnableIRQ (TIM3_IRQn);
 }
 
 //-----------------------------------------------------------------------------
@@ -239,12 +234,14 @@ void find_offset(uint16_t* buf_GPIO){
 	}
 }
 
-void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf,
+void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf, uint16_t* iterrator,
 		uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf) {
 	// We take into account the data offset, so the value of the initial bit is "1"
 	//GPIOA->BSRR |= GPIO_BSRR_BS4;
 	int8_t current_bit;
 	int8_t temp_i;
+
+	*iterrator = 0;
 
 	uint16_t x = 0, y = 0, z = 0;
 
@@ -273,9 +270,9 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf,
 
 		if (flag) {
 			if (FFP) {
-				data_buf[sample_counter].x = x;
-				data_buf[sample_counter].y = y;
-				data_buf[sample_counter].z = z;
+				data_buf[*iterrator].x = x;
+				data_buf[*iterrator].y = y;
+				data_buf[*iterrator].z = z;
 			} else {
 				FFP = 0x1;
 			}
@@ -284,10 +281,10 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf,
 			y = 0x0;
 			z = 0x0;
 
-			if (sample_counter < DATA_BUF_HALF_SIZE) {
-				sample_counter++;
+			if (*iterrator < DATA_BUF_HALF_SIZE) {
+				*iterrator += 1;
 			} else {
-				sample_counter = 0x0;
+				*iterrator = 0x0;
 			}
 		}
 	}
@@ -307,16 +304,18 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf,
 		}
 
 		if (flag) {
-			data_buf[sample_counter].x = x;
-			data_buf[sample_counter].y = y;
-			data_buf[sample_counter].z = z;
+			TIM3->CR1 &= ~TIM_CR1_CEN;
 
-			if (sample_counter < DATA_BUF_HALF_SIZE) {
-				sample_counter++;
+			data_buf[*iterrator].x = x;
+			data_buf[*iterrator].y = y;
+			data_buf[*iterrator].z = z;
+
+			if (*iterrator < DATA_BUF_HALF_SIZE) {
+				*iterrator += 1;
 				total_send++;
 			} else {
-				flag = 0x0;
-				sample_counter = 0x0;
+				TIM3->CR1 |= TIM_CR1_CEN;
+				*iterrator = 0x0;
 				count++;
 			}
 			temp_i = i + 16;
@@ -327,7 +326,7 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf,
 			//&& calc_PE(z,
 			//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
 			)) {
-				fault_frames[fault_frames_idx] = sample_counter;
+				fault_frames[fault_frames_idx] = *iterrator;
 				fault_frames_idx++;
 				if (fault_frames_idx > 256) {
 					fault_frames_idx = 0;

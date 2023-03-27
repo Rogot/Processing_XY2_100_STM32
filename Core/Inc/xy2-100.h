@@ -83,7 +83,7 @@ extern uint32_t total_send;
 /* Functions */
 void CMSIS_GPIO_Init(void);
 void CMSIS_EXTI_Init(void);
-void CMSIS_TIM1_Init(void);
+void CMSIS_TIM3_Init(void);
 void CMSIS_TIM2_Init(void);
 void CMSIS_TIM8_Init(void);
 void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream);
@@ -91,7 +91,7 @@ void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t
 
 void find_offset(uint16_t* buf_GPIO);
 //void data_processing(uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf, uint16_t start_addr_data_buf);
-void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf);
+void data_processing_test(t_DATA* data_buf, uint16_t* GPIO_buf, uint16_t* iterrator, uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf);
 uint8_t calc_PE(uint16_t data, uint8_t PE, uint8_t len);
 
 /* ~Functions~ */

@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "xy2-100.h"
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -74,6 +75,7 @@ uint8_t first_busy  = 0x0, second_busy = 0x1;
 uint8_t overrun = 0x0;
 t_DATA data_buf_first[DATA_BUF_HALF_SIZE] = {0};
 t_DATA data_buf_second[DATA_BUF_HALF_SIZE] = {0};
+uint16_t sample_iterrator_1 = 0, sample_iterrator_2 = 0;
 
 
 /******~TEST~*********/
@@ -118,7 +120,6 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int a = 0;
 /* USER CODE END 0 */
 
 /**
@@ -150,6 +151,7 @@ int main(void) {
 	CMSIS_DMA_Config(DMA2_Stream2, &GPIOA->IDR, (uint32_t) GPIOx_buff,
 	GPIOx_BUF_SIZE);
 	CMSIS_TIM8_Init();
+	CMSIS_TIM3_Init();
 	/* USER CODE END SysInit */
 
 	/* Initialize all configured peripherals */
@@ -157,6 +159,8 @@ int main(void) {
 	MX_TIM2_Init();
 	MX_USB_DEVICE_Init();
 	/* USER CODE BEGIN 2 */
+
+	uint8_t status;
 
 	/* USER CODE END 2 */
 
@@ -166,37 +170,40 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		uint8_t status;
+
+//		for(int i = 0; i < 100000000; i++);
+
+		//status = CDC_Transmit_FS(send_arr, 10000);
 
 		if (COF) {
 			if (proc_1_ready) {
-				GPIOA->BSRR |= GPIO_BSRR_BS4;
+				//GPIOA->BSRR |= GPIO_BSRR_BS4;
 				overrun = 0x0;
 				proc_1_busy = 0x1;
 				FPBGP = 0x1;
 
-				data_processing_test(data_buf_first, GPIOx_buff,
+				data_processing_test(data_buf_first, GPIOx_buff, &sample_iterrator_1,
 				GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx);
 
 				FPBGP = 0x0;
 
 				proc_1_busy = 0x0;
-				GPIOA->BSRR |= GPIO_BSRR_BR4;
+				//GPIOA->BSRR |= GPIO_BSRR_BR4;
 				proc_1_ready = 0x0;
 				trans_1_ready = 0x1;
 			}
 
 			if (proc_2_ready) {
-				GPIOA->BSRR |= GPIO_BSRR_BS7;
+				//GPIOA->BSRR |= GPIO_BSRR_BS7;
 				overrun = 0x0;
 				proc_2_busy = 0x1;
 
-				data_processing_test(data_buf_second, GPIOx_buff,
+				data_processing_test(data_buf_second, GPIOx_buff, &sample_iterrator_2,
 				GPIOx_BUF_SIZE,
 				GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx);
 
 				proc_2_busy = 0x0;
-				GPIOA->BSRR |= GPIO_BSRR_BR7;
+				//GPIOA->BSRR |= GPIO_BSRR_BR7;
 				proc_2_ready = 0x0;
 				trans_2_ready = 0x1;
 			}
@@ -335,8 +342,13 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void TIM3_IRQHandler(void) {
+	flag = 0x0;
+	TIM3->CR1 &= ~TIM_CR1_CEN;
+	TIM3->SR &= ~TIM_SR_UIF;
+}
+
 void DMA2_Stream2_IRQHandler(void){
-	//GPIOA->BSRR |= GPIO_BSRR_BS4;
 
 	if (!COF){
 		find_offset(GPIOx_buff);
@@ -344,7 +356,6 @@ void DMA2_Stream2_IRQHandler(void){
 	}
 
 	if ((DMA2->LISR & DMA_LISR_HTIF2) && !(DMA2->LISR & DMA_LISR_TCIF2)){
-//		GPIOA->BSRR |= GPIO_BSRR_BS4;
 		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
 
 		proc_1_ready = 0x1;
@@ -352,11 +363,9 @@ void DMA2_Stream2_IRQHandler(void){
 			overrun = 0x1;
 			proc_1_ready = 0x0;
 		}
-//		GPIOA->BSRR |= GPIO_BSRR_BR4;
 	}
 
 	if (DMA2->LISR & DMA_LISR_TCIF2){
-//		GPIOA->BSRR |= GPIO_BSRR_BS7;
 		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
 		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
 
@@ -365,16 +374,7 @@ void DMA2_Stream2_IRQHandler(void){
 			overrun = 0x1;
 			proc_2_ready = 0x0;
 		}
-//		GPIOA->BSRR |= GPIO_BSRR_BR7;
 	}
-	//GPIOA->BSRR |= GPIO_BSRR_BR4;
-}
-
-void DMA2_Stream1_IRQHandler(void){
-//	if (DMA2->LISR & DMA_LISR_HTIF1){
-//		GPIOA->BSRR |= GPIO_BSRR_BS4;
-//		DMA2->LIFCR |= DMA_LIFCR_CHTIF1;
-//	}
 }
 
 void TIM2_IRQHandler(void) {
