@@ -23,7 +23,7 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-
+#include "xy2-100.h"
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -312,6 +312,19 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
   UNUSED(Buf);
   UNUSED(Len);
   UNUSED(epnum);
+
+  if (Buf == data_buf_first) {
+	  trans_1_busy = 0x0;
+	  total_send += 1000;
+	  //GPIOA->BSRR |= GPIO_BSRR_BR7;
+  }
+
+  if (Buf == data_buf_second) {
+	  trans_2_busy = 0x0;
+	  total_send += 1000;
+	  //GPIOA->BSRR |= GPIO_BSRR_BR7;
+  }
+
   /* USER CODE END 13 */
   return result;
 }
