@@ -27,7 +27,6 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include  "usbd_ioreq.h"
-#include "xy2-100.h"
 
 /** @addtogroup STM32_USB_DEVICE_LIBRARY
   * @{

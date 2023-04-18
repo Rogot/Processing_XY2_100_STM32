@@ -11,22 +11,17 @@ void CMSIS_GPIO_Init(void){
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN; //Enable GPIOC
 
 	/* Информационные пины */
-	/*	PA10 - X	*/
-	GPIOA->MODER &= ~GPIO_MODER_MODE10; // Input mode
-	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR10_1; //High speed
-
-	/*	PA9 - Y	*/
+	/*	PA9 - X	*/
 	GPIOA->MODER &= ~GPIO_MODER_MODE9; // Input mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR9_1; //High speed
+
+	/*	PA7 - Y	*/
+	GPIOA->MODER &= ~GPIO_MODER_MODE7; // Input mode
+	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR7_1; //High speed
 
 	/*	PA6 - Z	*/
 	GPIOA->MODER &= ~GPIO_MODER_MODE6; // Input mode
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR6_1; //High speed
-
-//	/*	PA0 - CLCK*/
-//	GPIOA->MODER |= GPIO_MODER_MODE0_1; // Alternative mode
-//	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR0_1; //High speed
-//	GPIOA->AFR[0] |= GPIO_AFRL_AFRL0_0 | GPIO_AFRL_AFRL0_1; //Alternate function for PA0 - AF3 (TIM8..TIM11)
 
 	/*	PC6 - CLCK*/
 	GPIOC->MODER |= GPIO_MODER_MODE6_1; // Alternative mode
@@ -38,23 +33,23 @@ void CMSIS_GPIO_Init(void){
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR2_1; //High speed
 
 	/* ~Информационные пины~ */
+//
+//	// PA1 - TIM2 input channel 2
+//	GPIOA->MODER &= ~GPIO_MODER_MODE1;
+//	GPIOA->MODER |= GPIO_MODER_MODE1_1; // Alternate function mode
+//	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR1_1; //High speed
+//	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD1_1; //Pull-down
+//	GPIOA->AFR[0] |= GPIO_AFRL_AFRL1_0; //Alternate function for PA1 - AF1 (TIM1/TIM2)
+//
+//	// PA3 - TIM2 input channel 4
+//	GPIOA->MODER &= ~GPIO_MODER_MODE3;
+//	GPIOA->MODER |= GPIO_MODER_MODE3_1; // Alternate function mode
+//	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR3_1; //High speed
+//	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD3_1; //Pull-down
+//	GPIOA->AFR[0] |= GPIO_AFRL_AFRL3_0; //Alternate function for PA3 - AF1 (TIM1/TIM2)
 
-	// PA1 - TIM2 input channel 2
-	GPIOA->MODER &= ~GPIO_MODER_MODE1;
-	GPIOA->MODER |= GPIO_MODER_MODE1_1; // Alternate function mode
-	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR1_1; //High speed
-	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD1_1; //Pull-down
-	GPIOA->AFR[0] |= GPIO_AFRL_AFRL1_0; //Alternate function for PA1 - AF1 (TIM1/TIM2)
 
-	// PA3 - TIM2 input channel 4
-	GPIOA->MODER &= ~GPIO_MODER_MODE3;
-	GPIOA->MODER |= GPIO_MODER_MODE3_1; // Alternate function mode
-	//GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR3_1; //High speed
-	//GPIOA->PUPDR |= GPIO_PUPDR_PUPD3_1; //Pull-down
-	GPIOA->AFR[0] |= GPIO_AFRL_AFRL3_0; //Alternate function for PA3 - AF1 (TIM1/TIM2)
-
-
-	/* TEMP (проверка работы DMA) - удалить */
+	/* TEMP (проверка работы на осциллографе) - удалить */
 
 	/* PA4 - шип 1 */
 	GPIOA->MODER &= ~GPIO_MODER_MODE4;
@@ -62,9 +57,9 @@ void CMSIS_GPIO_Init(void){
 	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR4_1;
 
 	/* PA7 - шип 2*/
-	GPIOA->MODER &= ~GPIO_MODER_MODE7;
-	GPIOA->MODER |= GPIO_MODER_MODE7_0; //Output mode
-	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR7_1;
+//	GPIOA->MODER &= ~GPIO_MODER_MODE7;
+//	GPIOA->MODER |= GPIO_MODER_MODE7_0; //Output mode
+//	GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR7_1;
 	/* TEMP (проверка работы DMA) - удалить */
 
 }
@@ -75,18 +70,55 @@ void CMSIS_GPIO_Init(void){
 //-----------------------------------------------------------------------------
 
 void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream){
-	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN; //Enable DMA2
 
-	dma_stream->CR |= DMA_SxCR_CHSEL; //Channel 7
-	dma_stream->CR &= ~DMA_SxCR_DIR; //Peripheral-to-memory
-	dma_stream->CR |= DMA_SxCR_CIRC; //Circular mode enable
-	dma_stream->CR |= DMA_SxCR_PL; //Priority level very high
-	dma_stream->CR |= DMA_SxCR_MSIZE_0; // 16 bit
-	dma_stream->CR |= DMA_SxCR_PSIZE_0; // 16 bit
-	dma_stream->CR |= DMA_SxCR_MINC; //Memory increment mode enable
-	dma_stream->CR &= ~DMA_SxCR_PINC; //Peripheral increment mode disable
-	dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
-	dma_stream->CR |= DMA_SxCR_HTIE; //Interrupt half enable
+	/* Data recording XY2-100 */
+	if (dma_stream == DMA2_Stream2) {
+
+		RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN; //Enable DMA2
+
+		dma_stream->CR |= DMA_SxCR_CHSEL; //Channel 7
+		dma_stream->CR &= ~DMA_SxCR_DIR; //Peripheral-to-memory
+		dma_stream->CR |= DMA_SxCR_CIRC; //Circular mode enable
+		dma_stream->CR |= DMA_SxCR_PL; //Priority level very high
+		dma_stream->CR |= DMA_SxCR_MSIZE_0; // 16 bit
+		dma_stream->CR |= DMA_SxCR_PSIZE_0; // 16 bit
+		dma_stream->CR |= DMA_SxCR_MINC; //Memory increment mode enable
+		dma_stream->CR &= ~DMA_SxCR_PINC; //Peripheral increment mode disable
+		dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
+		dma_stream->CR |= DMA_SxCR_HTIE; //Interrupt half enable
+	}
+	/* ~Data recording XY2-100~ */
+
+	/* Recording data about laser power */
+	else if (dma_stream == DMA2_Stream1) {
+		RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN; /* Enable DMA2 */
+
+		dma_stream->CR |= DMA_SxCR_CHSEL_1 | DMA_SxCR_CHSEL_2; /* Channel 6 */
+		dma_stream->CR &= ~DMA_SxCR_DIR; /* Peripheral-to-memory */
+		dma_stream->CR |= DMA_SxCR_CIRC; //Circular mode enable
+		dma_stream->CR |= DMA_SxCR_PL_1; //Priority level high
+		dma_stream->CR |= DMA_SxCR_MSIZE_0; // 16 bit
+		dma_stream->CR |= DMA_SxCR_PSIZE_0; // 16 bit
+		dma_stream->CR |= DMA_SxCR_MINC; //Memory increment mode enable
+		dma_stream->CR &= ~DMA_SxCR_PINC; //Peripheral increment mode disable
+//		dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
+//		dma_stream->CR |= DMA_SxCR_HTIE; //Interrupt half enable
+	}
+//	else if (dma_stream == DMA2_Stream6) {
+//		RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN; /* Enable DMA2 */
+//
+//		dma_stream->CR |= DMA_SxCR_CHSEL_1 | DMA_SxCR_CHSEL_2; /* Channel 6 */
+//		dma_stream->CR &= ~DMA_SxCR_DIR; /* Peripheral-to-memory */
+//		dma_stream->CR |= DMA_SxCR_CIRC; //Circular mode enable
+//		dma_stream->CR |= DMA_SxCR_PL_1; //Priority level high
+//		dma_stream->CR |= DMA_SxCR_MSIZE_0; // 16 bit
+//		dma_stream->CR |= DMA_SxCR_MSIZE_0; // 16 bit
+//		dma_stream->CR |= DMA_SxCR_MINC; //Memory increment mode enable
+//		dma_stream->CR &= ~DMA_SxCR_PINC; //Peripheral increment mode disable
+////		dma_stream->CR |= DMA_SxCR_TCIE; //Interrupt enable
+////		dma_stream->CR |= DMA_SxCR_HTIE; //Interrupt half enable
+//	}
+	/* ~Recording data about laser power~ */
 }
 
 //-----------------------------------------------------------------------------
@@ -95,16 +127,17 @@ void CMSIS_DMA_Init(DMA_Stream_TypeDef* dma_stream){
 //-----------------------------------------------------------------------------
 
 void CMSIS_DMA_Config(DMA_Stream_TypeDef* dma_stream, uint32_t srcAdrr, uint32_t dstAdrr, uint16_t dataSize){
-	dma_stream->PAR = (uint32_t)srcAdrr;
+	dma_stream->PAR = (uint32_t) srcAdrr;
 
-	dma_stream->M0AR = (uint32_t)dstAdrr;
+	dma_stream->M0AR = (uint32_t) dstAdrr;
 
 	dma_stream->NDTR = dataSize; //Buffer size
 
 	dma_stream->CR |= DMA_SxCR_EN; //Stream enable
 
-	NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-	NVIC_EnableIRQ(DMA2_Stream1_IRQn);
+	if (dma_stream == DMA2_Stream2) {
+		NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -122,8 +155,6 @@ void CMSIS_TIM3_Init(void){
 
 	TIM3->CR1 &= TIM_CR1_DIR; //upcounter mode
 	TIM3->DIER |= TIM_DIER_UIE; //interrapt enable
-
-	//TIM3->CR1 &= (uint32_t) (~TIM_CR1_ARPE); //Auto-reload preload enable
 
 	for (uint16_t i = 0; i < 0xffff; i++); //delay for avoiding fatal error
 
@@ -170,8 +201,8 @@ void CMSIS_TIM2_Init(void){
 	//RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;// Enable alternative functions
 
 	//Config friq
-	TIM2->PSC = (uint32_t) 1; //freq 1kHz
-	TIM2->ARR = (uint32_t) 0xffff;
+	TIM2->PSC = (uint16_t) 84; //freq 1kHz
+	TIM2->ARR = (uint16_t) 0x1;
 
 	//CR1
 	TIM2->CR1 &= ~TIM_CR1_DIR; //Counter used as upcounter
@@ -179,29 +210,30 @@ void CMSIS_TIM2_Init(void){
 	TIM2->CR1 &= ~TIM_CR1_CKD; //Clock division 1
 
 	//DIER
-	TIM2->DIER |= TIM_DIER_CC2IE; //Capture/Compare 3/4 enable
+	TIM2->DIER |= TIM_DIER_CC3IE; //Capture/Compare 3/4 enable
 	TIM2->DIER |= TIM_DIER_CC4IE;
 
 	//CCMR2
-	TIM2->CCMR1 &= ~TIM_CCMR1_IC2F;
+	TIM2->CCMR2 &= ~TIM_CCMR2_IC3F;
 	TIM2->CCMR2 &= ~TIM_CCMR2_IC4PSC; //don't filter
-	TIM2->CCMR1 &= ~TIM_CCMR1_IC2PSC;
+	TIM2->CCMR2 &= ~TIM_CCMR2_IC3PSC;
 	TIM2->CCMR2 &= ~TIM_CCMR2_IC4F; //don't use prescaler
 
-	TIM2->CCMR1 &= ~TIM_CCMR1_CC2S;
+	TIM2->CCMR2 &= ~TIM_CCMR2_CC3S;
 	TIM2->CCMR2 &= ~TIM_CCMR2_CC4S;
-	TIM2->CCMR1 |= TIM_CCMR1_CC2S_0;//: CC2 channel is configured as input, IC2 is mapped on TI2
+	TIM2->CCMR2 |= TIM_CCMR2_CC3S_0;//: CC2 channel is configured as input, IC2 is mapped on TI2
 	TIM2->CCMR2 |= TIM_CCMR2_CC4S_0;//: CC4 channel is configured as input, IC4 is mapped on TI4
 
 	//CCER
-	TIM2->CCER &= ~TIM_CCER_CC2P; //Rising mode
+	TIM2->CCER &= ~TIM_CCER_CC3P; //Rising mode
 	TIM2->CCER |= TIM_CCER_CC4P; //Falling mode
-	TIM2->CCER |= TIM_CCER_CC2E | TIM_CCER_CC4E; //Capture enable
+	TIM2->CCER |= TIM_CCER_CC3E | TIM_CCER_CC4E; //Capture enable
 
 	TIM2->CR1 |= TIM_CR1_CEN; //Counter enable
 
 	NVIC_EnableIRQ(TIM2_IRQn); // TIM2 global interrupt enable
 }
+
 
 //-----------------------------------------------------------------------------
 // 	void CMSIS_EXTI_Init(void)
@@ -237,11 +269,12 @@ void find_offset(uint16_t* buf_GPIO){
 void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf, uint16_t* iterrator,
 		uint16_t GPIO_buf_size, uint16_t start_addr_gpio_buf) {
 	// We take into account the data offset, so the value of the initial bit is "1"
-	//GPIOA->BSRR |= GPIO_BSRR_BS4;
 	int8_t current_bit;
 	int8_t temp_i;
+	uint16_t meas_cur_1, meas_cur_2, meas_prev_1 = 0;
 
 	*iterrator = 0;
+	period = TIM1->CCR1;
 
 	uint16_t x = 0, y = 0, z = 0;
 
@@ -272,7 +305,8 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf, uint16_t* iterra
 			if (FFP) {
 				data_buf[*iterrator].x = x;
 				data_buf[*iterrator].y = y;
-				data_buf[*iterrator].z = z;
+				//data_buf[*iterrator].z = z;
+				data_buf[*iterrator].dutyCycle = 1000;
 			} else {
 				FFP = 0x1;
 			}
@@ -285,6 +319,11 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf, uint16_t* iterra
 				*iterrator += 1;
 			} else {
 				*iterrator = 0x0;
+			}
+			if (sample_counter < DC_BUFF_SIZE) {
+				sample_counter++;
+			} else {
+				sample_counter = 0x0;
 			}
 		}
 	}
@@ -304,34 +343,56 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf, uint16_t* iterra
 		}
 
 		if (flag) {
-			TIM3->CR1 &= ~TIM_CR1_CEN;
+			if (x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y ){
+				TIM3->CR1 &= ~TIM_CR1_CEN;
+			} else {
+				TIM3->CR1 |= TIM_CR1_CEN;
+			}
+			pulseWidth = duty_cycle_buff[sample_counter];
 
 			data_buf[*iterrator].x = x;
 			data_buf[*iterrator].y = y;
-			data_buf[*iterrator].z = z;
+			//data_buf[*iterrator].z = z;
+			if (period) {
 
-			if (*iterrator < DATA_BUF_HALF_SIZE) {
+				p_f = ((float) pulseWidth / (float) period);
+
+				if (p_f < 1.0) {
+
+					uint16_t p_16 = (p_f - POWER_LASER_NORM_MIN)
+							/ (POWER_LASER_NORM_MAX - POWER_LASER_NORM_MIN)
+							* 65535;
+
+					data_buf[*iterrator].dutyCycle = p_16;
+				}
+			}
+
+			if (*iterrator < DATA_BUF_SIZE) {
 				*iterrator += 1;
 				total_send++;
 			} else {
-				TIM3->CR1 |= TIM_CR1_CEN;
 				*iterrator = 0x0;
 				count++;
 			}
+			if (sample_counter < DC_BUFF_SIZE) {
+				sample_counter++;
+			} else {
+				sample_counter = 0x0;
+			}
 			temp_i = i + 16;
 
-			if (!(calc_PE(x, ((GPIO_buf[temp_i] >> DATA_X_OFFSET) & 0x1), 16)
-					&& calc_PE(y, ((GPIO_buf[temp_i] >> DATA_Y_OFFSET) & 0x1),
-							16)
-			//&& calc_PE(z,
-			//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
-			)) {
-				fault_frames[fault_frames_idx] = *iterrator;
-				fault_frames_idx++;
-				if (fault_frames_idx > 256) {
-					fault_frames_idx = 0;
-				}
-			}
+//			if (!(calc_PE(x, ((GPIO_buf[temp_i] >> DATA_X_OFFSET) & 0x1), 16)
+//					&& calc_PE(y, ((GPIO_buf[temp_i] >> DATA_Y_OFFSET) & 0x1),
+//							16)
+//			//&& calc_PE(z,
+//			//((GPIO_buf[i + 16] >> DATA_Z_OFFSET) & 0x1), DATA_XY2_LEN)
+//			)) {
+//				fault_frames[fault_frames_idx] = *iterrator;
+//				fault_frames_idx++;
+//				if (fault_frames_idx > 256) {
+//					fault_frames_idx = 0;
+//				}
+//			}
 
 		} else if ((x != CENTRAL_COORFINATE_X && y != CENTRAL_COORDINATE_Y)
 				&& (x != 0 && y != 0)) {
@@ -342,7 +403,7 @@ void data_processing_test(t_DATA *data_buf, uint16_t *GPIO_buf, uint16_t* iterra
 		y = 0x0;
 		z = 0x0;
 
-		i += DATA_XY2_LEN; /* Missed several coordinate for optimization */
+		i += DATA_XY2_LEN * 2; /* Missed several coordinate for optimization */
 	}
 }
 

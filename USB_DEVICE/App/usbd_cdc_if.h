@@ -29,7 +29,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc.h"
-#include "xy2-100.h"
 
 /* USER CODE BEGIN INCLUDE */
 

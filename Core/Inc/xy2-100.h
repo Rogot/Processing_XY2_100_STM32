@@ -25,12 +25,18 @@
 #define DATA_XY2_USB_LEN			8
 
 #define SYNC_OFFSET					2
-#define DATA_X_OFFSET				10
-#define DATA_Y_OFFSET				9
+#define DATA_X_OFFSET				9
+#define DATA_Y_OFFSET				7
 #define DATA_Z_OFFSET				6
 
 #define CENTRAL_COORFINATE_X		32767
 #define CENTRAL_COORDINATE_Y		32768
+
+#define DC_BUFF_SIZE	DATA_BUF_SIZE	/* duty cycle buffer size */
+#define DC_BUFF_HALF_SIZE	DC_BUFF_SIZE / 2	/* duty cycle half buffer size */
+#define POWER_LASER_NORM_MAX	1
+#define POWER_LASER_NORM_MIN	0
+
 /* ~Defines~ */
 
 extern frame_num, bit_num;
@@ -41,17 +47,23 @@ extern uint16_t GPIOx_offset_idx;
 extern uint16_t data_offset_idx;
 extern uint16_t sample_counter;
 extern uint8_t flag;
-extern uint8_t sample_finished;
-extern uint8_t transmission_end;
 
-//extern struct Data_XY2_100 data_buff[DATA_BUF_SIZE];
+extern uint32_t duty_cycle_data;
+extern uint16_t duty_cycle_buff[DC_BUFF_SIZE];
+extern uint32_t tim_ccrx_reg;
+extern uint32_t pulseWidth;
+extern uint32_t period;
+extern uint16_t dutyCycle;
+extern uint16_t CNTBegin;
+
 extern uint16_t sync_buff[GPIOx_BUF_SIZE];
 extern uint16_t GPIOx_buff[GPIOx_BUF_SIZE];
 
 typedef struct DATA_XYZ {
 	uint16_t x;
 	uint16_t y;
-	uint16_t z;
+	//uint16_t z;
+	uint16_t dutyCycle;
 }t_DATA;
 
 extern t_DATA data_buf[DATA_BUF_SIZE];
@@ -79,6 +91,9 @@ extern uint32_t total_send_2;
 extern uint32_t count;
 extern uint32_t total_send;
 
+uint16_t p_16;
+float p_f;
+int16_t DMA_offset;
 
 /* Functions */
 void CMSIS_GPIO_Init(void);
