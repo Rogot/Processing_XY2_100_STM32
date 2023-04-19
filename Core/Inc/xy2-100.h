@@ -32,7 +32,7 @@
 #define CENTRAL_COORFINATE_X		32767
 #define CENTRAL_COORDINATE_Y		32768
 
-#define DC_BUFF_SIZE	DATA_BUF_SIZE	/* duty cycle buffer size */
+#define DC_BUFF_SIZE	DATA_BUF_SIZE * 2	/* duty cycle buffer size */
 #define DC_BUFF_HALF_SIZE	DC_BUFF_SIZE / 2	/* duty cycle half buffer size */
 #define POWER_LASER_NORM_MAX	1
 #define POWER_LASER_NORM_MIN	0
@@ -48,7 +48,7 @@ extern uint16_t data_offset_idx;
 extern uint16_t sample_counter;
 extern uint8_t flag;
 
-extern uint32_t duty_cycle_data;
+extern uint16_t duty_cycle_period;
 extern uint16_t duty_cycle_buff[DC_BUFF_SIZE];
 extern uint32_t tim_ccrx_reg;
 extern uint32_t pulseWidth;

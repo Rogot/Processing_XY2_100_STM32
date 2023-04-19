@@ -88,7 +88,8 @@ uint8_t COF = 0x0; //Check offset flag
 uint32_t period;
 uint32_t pulseWidth;
 
-uint16_t duty_cycle_buff[DC_BUFF_SIZE] = {0};
+uint16_t duty_cycle_buff[DC_BUFF_SIZE] = {0}; /*borehole*/
+uint16_t duty_cycle_period = 1;
 /* ~Laser Power data processing variables~ */
 
 uint16_t fault_frames[256] = {0};
@@ -147,7 +148,11 @@ int main(void)
 	GPIOx_BUF_SIZE);
 	/* Config DMA for laser power data */
 	CMSIS_DMA_Init(DMA2_Stream1);
-	CMSIS_DMA_Config(DMA2_Stream1, &TIM1->CCR2, (uint32_t) &duty_cycle_buff,
+	CMSIS_DMA_Config(DMA2_Stream1, &TIM1->CCR1, (uint32_t) &period,
+	1);
+
+	CMSIS_DMA_Init(DMA2_Stream6);
+	CMSIS_DMA_Config(DMA2_Stream6, &TIM1->CCR2, duty_cycle_buff,
 	DC_BUFF_SIZE);
 
 	CMSIS_TIM8_Init();
@@ -332,12 +337,19 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM1_Init 2 */
 
-  TIM1->CCER |= (uint32_t) TIM_CCER_CC1E | (uint32_t) TIM_CCER_CC2E;
+	TIM1->CCER |= (uint32_t) TIM_CCER_CC1E | (uint32_t) TIM_CCER_CC2E
+			| (uint32_t) TIM_CCER_CC3E;
 
-  TIM1->DIER |= TIM_DIER_CC1DE | TIM_DIER_CC2DE;
-  TIM1->CR1 |= TIM_CR1_CEN;
+	TIM1->DIER |= TIM_DIER_CC1DE | TIM_DIER_CC2DE | TIM_DIER_CC3DE;
+	TIM8->DIER |= (uint32_t) TIM_DIER_CC1DE; //Allow interruption by DMA
+	TIM1->CR1 |= TIM_CR1_CEN;
 
   /* USER CODE END TIM1_Init 2 */
 
