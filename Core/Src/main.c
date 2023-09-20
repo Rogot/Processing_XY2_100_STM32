@@ -6,26 +6,34 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2023 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <usbd_cdc_if.h>
-#include "xy2-100.h"
-#include "math.h"
+#include "hmi_interface.h"
+
+#if MODBUS_ENABLE
+#include "mb.h"
+#include "mbport.h"
+#include "mt_port.h"
+#endif
+
+#if DWIN_SERIAL_PORT_ENABLE
+#include "DWIN_lib.h"
+#include "DWIN_port.h"
+#endif
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,90 +43,65 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ITM_Port8(n)    (*((volatile unsigned char *)(0xE0000000+4*n)))
-#define ITM_Port16(n)   (*((volatile unsigned short*)(0xE0000000+4*n)))
-#define ITM_Port32(n)   (*((volatile unsigned long *)(0xE0000000+4*n)))
 
-#define DEMCR           (*((volatile unsigned long *)(0xE000EDFC)))
-#define TRCENA          0x01000000
-
-#define DC_BUFF_SIZE	2000	/* duty cycle buffer size */
-#define DC_BUFF_HALF_SIZE	DC_BUFF_SIZE / 2	/* duty cycle half buffer size */
-#define SEND_ARR_SIZE	3
-#define SEND_BYTE_SIZE 	SEND_ARR_SIZE * 2 * DATA_BUF_HALF_SIZE
-
-uint32_t count = 0;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
-/* XY2_100 data processing variables */
-uint32_t total_send = 0;
-uint32_t total_send_1 = 0;
-uint32_t total_send_2 = 0;
-
-uint16_t sample_counter = 0x0;
-uint8_t flag = 0x0, sample_finished = 0x0, transmission_end = 0x0;
-uint8_t FPBGP = 0; /* First part buffer GPIO processed */
-uint8_t FFP = 0; /* First frame processed */
-uint16_t last_bits = 0;
-
-
-uint8_t proc_1_ready = 0x0, proc_2_ready = 0x0;
-uint8_t proc_1_busy = 0x0, proc_2_busy = 0x0;
-uint8_t trans_1_ready = 0x0, trans_2_ready = 0x0;
-uint8_t trans_1_busy = 0x0, trans_2_busy = 0x0;
-
-
-uint8_t first_ready = 0x0, second_ready = 0x0;
-uint8_t first_busy  = 0x0, second_busy = 0x1;
-uint8_t overrun = 0x0;
-t_DATA data_buf_first[DATA_BUF_HALF_SIZE] = {0};
-t_DATA data_buf_second[DATA_BUF_HALF_SIZE] = {0};
-uint16_t sample_iterrator_1 = 0, sample_iterrator_2 = 0;
-
-uint16_t GPIOx_buff[GPIOx_BUF_SIZE] = {0};
-
-uint16_t GPIOx_offset_idx = 0;
-uint16_t data_offset_idx = 0;
-uint8_t COF = 0x0; //Check offset flag
-
-/* ~XY2_100 data processing variables~ */
-
-/* Laser Power data processing variables */
-uint16_t period;
-uint32_t CNTCurrent;
-uint16_t CNTBegin = 0;
-uint16_t pulseWidth;
-uint16_t dutyCycle, tempDutyCycle;
-
-uint32_t duty_cycle_buff[DC_BUFF_HALF_SIZE] = {0};
-uint16_t duty_cycle_idx = 0;
-/* ~Laser Power data processing variables~ */
-
-uint16_t fault_frames[256] = {0};
-uint8_t fault_frames_idx = 0x0;
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim10;
+
+UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
+extern t_control ctrl;
+extern t_hmi_reg programs[10];
+extern uint8_t start;
+extern uint8_t print;
+extern t_step_engine step_engine;
 
+#if MODBUS_ENABLE
+extern t_modbus_him_pack rxData;
+extern t_modbus_him_pack txData;
+
+extern uint16_t rx_data[256];
+extern uint8_t rx_data_indx;
+
+static USHORT usRegHoldingStart = REG_HOLDING_START;
+static int usRegHoldingBuf[REG_HOLDING_NREGS] = { 0x0 };
+	
+static USHORT usRegInputStart = REG_INPUT_START;
+static USHORT usRegInputBuf[REG_INPUT_NREGS] = { 0x0 };
+#endif
+
+#if DWIN_SERIAL_PORT_ENABLE
+extern volatile USHORT  ucRegistersBuf[DWIN_SER_PDU_SIZE_MAX];
+extern volatile UCHAR  ucDWINBuf[DWIN_SER_PDU_SIZE_MAX];
+#endif 
+extern uint16_t in_count;
+t_dac dac;
+uint8_t is_start_pos = 0x0;
+
+t_devices dev;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TIM1_Init(void);
+static void MX_DMA_Init(void);
+static void MX_USART1_UART_Init(void);
+static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
 /* USER CODE END 0 */
 
 /**
@@ -144,105 +127,136 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-	CMSIS_GPIO_Init();
-	CMSIS_EXTI_Init();
-	//CMSIS_TIM2_Init();
 
-	/* Config DMA for XY2-100 data */
-	CMSIS_DMA_Init(DMA2_Stream2);
-	CMSIS_DMA_Config(DMA2_Stream2, &GPIOA->IDR, (uint32_t) GPIOx_buff,
-	GPIOx_BUF_SIZE);
-	/* Config DMA for laser power data */
-	CMSIS_DMA_Init(DMA2_Stream1);
-	CMSIS_DMA_Config(DMA2_Stream1, &TIM1->CCR1, (uint32_t) duty_cycle_buff,
-	DC_BUFF_SIZE);
-
-	CMSIS_TIM8_Init();
-//	CMSIS_TIM3_Init();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USB_DEVICE_Init();
-  MX_TIM1_Init();
+  MX_DMA_Init();
+  MX_USART1_UART_Init();
+  MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
-
-  TIM1->DIER |= TIM_DIER_CC1DE;
-//	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_2);
-//	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
-//
-//	HL_TIM_IC_Stop_IT(&htim2, TIM_CHANNEL_2);
-//	HAL_TIM_IC_Stop_IT(&htim2, TIM_CHANNEL_4);
-  uint8_t status;
+	#if MODBUS_ENABLE
+	
+	MT_PORT_SetTimerModule(&htim10);
+	MT_PORT_SetUartModule(&huart1);
+	
+	eMBErrorCode eStatus;
+	//eStatus = eMBInit(MB_RTU, 0x0A, 0, 19200, MB_PAR_NONE);
+	eStatus = eMBInit(MB_RTU, 0x01, 0, 115200, MB_PAR_NONE);
+	eStatus = eMBEnable();
+	if (eStatus != MB_ENOERR)
+	{
+	// Error handling
+	}
+	
+	usRegHoldingBuf[NUM_EXE_PROGRAM] = 0x01;
+	usRegHoldingBuf[STEP_ENGINE_VEL_MC] = 0x30;
+	usRegHoldingBuf[STEP_ENGINE_START_POS_MS] = 0x51;
+	
+	usRegHoldingBuf[STAGE_1_POS] = 3600;
+	usRegHoldingBuf[STAGE_1_VEL] = 360;
+	
+	#endif
+	
+	#if PEREPH_ENABLE
+	dev.step_engine = &step_engine;
+	
+	ctrl.dev = &dev;
+	ctrl.programms = programs;
+	
+	init_HMI(&ctrl);
+	#endif
+	
+	#if STEP_ENGINE_ENABLE
+	//HAL_DBGMCU_EnableDBGStandbyMode();
+  //HAL_DBGMCU_EnableDBGStopMode();
+	//DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_TIM3_STOP;
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_12, GPIO_PIN_SET);
+	
+	step_engine.mode = STOP;
+	step_engine.vel = SPEED_MIN;
+	step_engine.accel_size = 0;
+	step_engine.dir = 1;
+	step_engine.engine_TIM_master = &htim3;
+	step_engine.engine_TIM_slave = &htim2;
+	
+	init_step_engine(&step_engine);
+	#endif
+	
+	uint8_t count = 0;
+	
+	#if DAC_ENABLE
+	/* DAC init */
+	dac.tim = TIM6;
+	dac.dac_type = DAC;
+	dac.tim_presc = 719;
+	dac.tim_arr = 10;
+	CMSIS_DAC_init(&dac);
+	uint16_t a;
+	#endif
+	
+	#if DWIN_SERIAL_PORT_ENABLE
+	//DWIN_PORT_SetDMAModule(DMA2_Stream2);
+	DWIN_PORT_SetUartModule(&huart1);
+	//CMSIS_DMA_Init(DMA2_Stream7);
+	//CMSIS_DMA_Init(DMA2_Stream2);
+	
+	//HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);                                        
+	//HAL_NVIC_EnableIRQ(USART1_IRQn);
+	
+	eDWINErrorCode eStatus;
+	eDWINInit(0xA5, 0, 115200, DWIN_PAR_NONE); 
+	
+	eStatus = eDWINEnable();
+	if (eStatus != DWIN_ENOERR)
+	{
+	// Error handling
+	}
+	#endif
+	
+	//HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)ucDWINBuf, DWIN_SER_PDU_SIZE_MAX);
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	while (1) {
+  while (1)
+  {
+		#if PEREPH_ENABLE
+			#if DATA_USART2_TX
+			cnt++;
+			if (cnt >= 255) cnt = 0;
+			DataWrite(cnt);
+			HAL_Delay(10);
+			#endif		
+		
+			#if DAC_ENABLE
+			//dac.dac_type->DHR12R1 = a;
+			//a++;
+			#endif
+		
+			#if MODBUS_ENABLE
+			eHMIPoll(&ctrl, usRegHoldingBuf);
+			#endif
+		
+			#if DWIN_SERIAL_PORT_ENABLE
+			eHMIPoll(&ctrl, ucRegistersBuf);
+			#endif
+		#endif
+		
+		#if MODBUS_ENABLE
+		eMBPoll();
+		#endif
+		
+		#if DWIN_SERIAL_PORT_ENABLE
+		eDWINPoll();
+		#endif
+		
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-		if (COF) {
-			if (proc_1_ready) {
-				GPIOA->BSRR |= GPIO_BSRR_BS4;
-				overrun = 0x0;
-				proc_1_busy = 0x1;
-				FPBGP = 0x1;
-
-				data_processing_test(data_buf_first, GPIOx_buff,
-						&sample_iterrator_1,
-						GPIOx_BUF_HALF_SIZE, DATA_XY2_LEN - GPIOx_offset_idx);
-
-				HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
-				HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_2);
-
-				FPBGP = 0x0;
-
-				proc_1_busy = 0x0;
-				GPIOA->BSRR |= GPIO_BSRR_BR4;
-				proc_1_ready = 0x0;
-				trans_1_ready = 0x1;
-			}
-
-			if (proc_2_ready) {
-				//GPIOA->BSRR |= GPIO_BSRR_BS7;
-				overrun = 0x0;
-				proc_2_busy = 0x1;
-
-				data_processing_test(data_buf_second, GPIOx_buff,
-						&sample_iterrator_2,
-						GPIOx_BUF_SIZE,
-						GPIOx_BUF_HALF_SIZE - GPIOx_offset_idx);
-
-				HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
-				HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_2);
-
-				proc_2_busy = 0x0;
-				//GPIOA->BSRR |= GPIO_BSRR_BR7;
-				proc_2_ready = 0x0;
-				trans_2_ready = 0x1;
-			}
-
-			if (trans_1_ready && !trans_2_busy && flag) {
-				//GPIOA->BSRR |= GPIO_BSRR_BS7;
-				trans_1_ready = 0x0;
-				trans_1_busy = 0x1;
-				status = CDC_Transmit_FS(data_buf_first,
-				SEND_BYTE_SIZE);
-				total_send_1 += SEND_BYTE_SIZE;
-			}
-
-			if (trans_2_ready && !trans_1_busy && flag) {
-				//GPIOA->BSRR |= GPIO_BSRR_BS7;
-				trans_2_ready = 0x0;
-				trans_2_busy = 0x1;
-				status = CDC_Transmit_FS(data_buf_second,
-				SEND_BYTE_SIZE);
-				total_send_2 += SEND_BYTE_SIZE;
-			}
-		}
-	}
+  }
   /* USER CODE END 3 */
 }
 
@@ -259,98 +273,116 @@ void SystemClock_Config(void)
   */
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 72;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 7;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
 }
 
 /**
-  * @brief TIM1 Initialization Function
+  * @brief TIM10 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM1_Init(void)
+static void MX_TIM10_Init(void)
 {
 
-  /* USER CODE BEGIN TIM1_Init 0 */
+  /* USER CODE BEGIN TIM10_Init 0 */
 
-  /* USER CODE END TIM1_Init 0 */
+  /* USER CODE END TIM10_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
+  /* USER CODE BEGIN TIM10_Init 1 */
 
-  /* USER CODE BEGIN TIM1_Init 1 */
+  /* USER CODE END TIM10_Init 1 */
+  htim10.Instance = TIM10;
+  htim10.Init.Prescaler = 71;
+  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim10.Init.Period = 50;
+  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM10_Init 2 */
 
-  /* USER CODE END TIM1_Init 1 */
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 84;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 65535;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_INDIRECTTI;
-  if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM1_Init 2 */
+  /* USER CODE END TIM10_Init 2 */
 
-  /* USER CODE END TIM1_Init 2 */
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
 
 }
 
@@ -361,109 +393,18 @@ static void MX_TIM1_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
 
-void TIM3_IRQHandler(void) {
-	flag = 0x0;
-	TIM3->CR1 &= ~TIM_CR1_CEN;
-	TIM3->SR &= ~TIM_SR_UIF;
-}
-
-void DMA2_Stream2_IRQHandler(void){
-
-	if (!COF){
-		find_offset(GPIOx_buff);
-		COF = 0x1;
-	}
-
-	if ((DMA2->LISR & DMA_LISR_HTIF2) && !(DMA2->LISR & DMA_LISR_TCIF2)){
-		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
-
-		proc_1_ready = 0x1;
-		if (proc_2_busy) {
-			overrun = 0x1;
-			proc_1_ready = 0x0;
-		}
-	}
-
-	if (DMA2->LISR & DMA_LISR_TCIF2){
-		DMA2->LIFCR |= DMA_LIFCR_CTCIF2;
-		DMA2->LIFCR |= DMA_LIFCR_CHTIF2;
-
-		proc_2_ready = 0x1;
-		if (proc_1_busy){
-			overrun = 0x1;
-			proc_2_ready = 0x0;
-		}
-	}
-}
-
-
-void DMA2_Stream1_IRQHandler(void){
-	int a = 0;
-	a++;
-}
-
-
-
-uint32_t s1,s2,s3,s4;
-
-
-//void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-//	GPIOA->BSRR |= GPIO_BSRR_BS7;
-//	if (htim->Instance == TIM1) {
-//		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-//			//TIM2->CNT = 0;
-//			s1 = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_1);
-//			s2 = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
-//
-//			CNTCurrent = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_1);
-//			if (s2 < CNTBegin){
-//				pulseWidth = s2	+ 0xffff - CNTBegin;
-//			} else {
-//				pulseWidth = s2	- CNTBegin;
-//			}
-//			if (CNTCurrent < CNTBegin){
-//				period = CNTCurrent + 0xffff - CNTBegin;
-//			} else {
-//				period = CNTCurrent - CNTBegin;
-//			}
-//			//Calculate duty cycle and save it
-//			if (period) {
-//
-//				tempDutyCycle = ((uint32_t) pulseWidth / (uint32_t) period -
-//						POWER_LASER_NORM_MIN) / (POWER_LASER_NORM_MAX - POWER_LASER_NORM_MIN) *
-//								65535;
-//				duty_cycle_buff[duty_cycle_idx] = tempDutyCycle;
-//				duty_cycle_idx++;
-//				if (duty_cycle_idx > DC_BUFF_SIZE - 1) {
-//					duty_cycle_idx = 0;
-//					HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_1);
-//					HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_2);
-//					CNTBegin = 0;
-//					uint32_t abarageDC = 0;
-//					for (uint8_t i = 0; i < DC_BUFF_SIZE; i++) {
-//						abarageDC += duty_cycle_buff[i];
-//					}
-//					abarageDC /= DC_BUFF_SIZE;
-////				if (abarageDC < 1.0f) {
-//					dutyCycle = abarageDC;
-////				}
-//				}
-//			}
-//
-//			CNTBegin = CNTCurrent;
-//		}
-//	}
-//	GPIOA->BSRR |= GPIO_BSRR_BR7;
-//}
 /* USER CODE END 4 */
 
 /**
@@ -497,5 +438,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
